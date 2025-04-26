@@ -22,6 +22,7 @@ import {
   faXmark,
   faSort,
   faSortUp,
+  faSortDown,
   faHome,
   faCar,
   faCarSide,
@@ -40,6 +41,7 @@ import {
   faArrowUp,
   faCheckCircle,
   faExclamationCircle,
+  faTimesCircle,
   faHistory,
   faUserCircle,
   faAddressBook,
@@ -81,6 +83,7 @@ import {
   faUpload,
   faQrcode,
   faPlus,
+  faCogs,
 } from '@fortawesome/free-solid-svg-icons'
 import { faGoogle } from '@fortawesome/free-brands-svg-icons'
 
@@ -129,6 +132,7 @@ const icons: IconDefinition[] = [
   faArrowUp,
   faCheckCircle,
   faExclamationCircle,
+  faTimesCircle,
   faHistory,
   faCog,
   faCreditCard,
@@ -136,6 +140,7 @@ const icons: IconDefinition[] = [
   faFilter,
   faSort,
   faSortUp,
+  faSortDown,
   faTrash,
   faTag,
   faFile,
@@ -157,6 +162,7 @@ const icons: IconDefinition[] = [
   faUpload,
   faQrcode,
   faPlus,
+  faCogs,
 ]
 library.add(...icons)
 

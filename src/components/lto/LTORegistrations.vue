@@ -51,14 +51,22 @@ const activeRegistration = ref<VehicleRegistrationForm | null>(null)
 const showInspectionModal = ref(false)
 const showPaymentModal = ref(false)
 
+// Function to get owner name from user ID
+const getOwnerName = (userId: string): string => {
+  const user = userStore.users.find((user) => user.ltoClientId === userId)
+  if (user) {
+    return `${user.firstName} ${user.lastName}`
+  }
+  return 'Unknown'
+}
+
 const pendingRegistrations = computed<VehicleRegistrationForm[]>(() => {
   return registrationFormStore.forms
     .filter((form) => form.status === 'pending')
     .map((form) => {
-      const owner = userStore.users.find((user) => user.ltoClientId === form.userId)
       return {
         ...form,
-        applicantName: owner ? `${owner.firstName} ${owner.lastName}` : 'Unknown',
+        applicantName: getOwnerName(form.userId),
       }
     })
 })
@@ -71,10 +79,9 @@ const processingRegistrations = computed<VehicleRegistrationForm[]>(() => {
         (form.inspectionStatus !== 'approved' || form.paymentStatus !== 'approved'),
     )
     .map((form) => {
-      const owner = userStore.users.find((user) => user.ltoClientId === form.userId)
       return {
         ...form,
-        applicantName: owner ? `${owner.firstName} ${owner.lastName}` : 'Unknown',
+        applicantName: getOwnerName(form.userId),
       }
     })
 })
@@ -105,10 +112,9 @@ const completedRegistrations = computed<VehicleRegistrationForm[]>(() => {
       return isCompleted
     })
     .map((form) => {
-      const owner = userStore.users.find((user) => user.ltoClientId === form.userId)
       return {
         ...form,
-        applicantName: owner ? `${owner.firstName} ${owner.lastName}` : 'Unknown',
+        applicantName: getOwnerName(form.userId),
       }
     })
 
@@ -364,12 +370,49 @@ const getEmptyStateMessage = computed(() => {
       return 'No registrations found in this category.'
   }
 })
+
+// Page titles and descriptions
+const pageTitle = computed(() => {
+  switch (selectedStatus.value) {
+    case 'pending':
+      return 'Pending Registrations'
+    case 'processing':
+      return 'Processing Registrations'
+    case 'completed':
+      return 'Completed Registrations'
+    default:
+      return 'Vehicle Registrations'
+  }
+})
+
+const pageDescription = computed(() => {
+  switch (selectedStatus.value) {
+    case 'pending':
+      return 'Review and approve new vehicle registration applications'
+    case 'processing':
+      return 'Manage registrations that are undergoing inspection and payment processing'
+    case 'completed':
+      return 'View successfully completed vehicle registrations'
+    default:
+      return 'Manage vehicle registration applications and approvals'
+  }
+})
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <h2 class="text-2xl font-bold text-dark-blue">{{ pageTitle }}</h2>
+        <p class="text-gray mt-1">{{ pageDescription }}</p>
+      </div>
+    </div>
+
     <!-- Loading State -->
-    <div v-if="isLoading" class="flex flex-col items-center justify-center py-12">
+    <div
+      v-if="isLoading"
+      class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 p-12 flex flex-col items-center justify-center"
+    >
       <div class="relative">
         <div class="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin"></div>
         <div
@@ -386,10 +429,10 @@ const getEmptyStateMessage = computed(() => {
         (selectedStatus === 'processing' && !processingRegistrations.length) ||
         (selectedStatus === 'completed' && !completedRegistrations.length)
       "
-      class="flex flex-col items-center justify-center py-16 px-4"
+      class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 p-12 flex flex-col items-center justify-center"
     >
-      <div class="bg-gray-50 rounded-full p-6 mb-4">
-        <font-awesome-icon :icon="getEmptyStateIcon" class="h-16 w-16 text-blue-400" />
+      <div class="bg-light-blue bg-opacity-10 rounded-full p-6 mb-4">
+        <font-awesome-icon :icon="getEmptyStateIcon" class="h-16 w-16 text-light-blue" />
       </div>
       <h3 class="text-xl font-semibold text-gray-800 mb-2">
         {{ getEmptyStateTitle }}

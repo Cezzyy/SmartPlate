@@ -269,106 +269,109 @@ const canGenerateConductionSticker = computed(() => {
 <template>
   <div
     v-if="isOpen"
-    class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50"
   >
     <div
-      class="relative mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto"
+      class="relative mx-auto p-0 w-full max-w-4xl shadow-xl rounded-xl bg-white max-h-[90vh] overflow-y-auto"
     >
-      <div class="mt-3">
-        <div class="flex justify-between items-center pb-3 border-b">
-          <h3 class="text-lg font-medium text-gray-900">
-            Vehicle Inspection Process - {{ registration?.id }}
-          </h3>
-          <button @click="cancelInspection" class="text-gray-400 hover:text-gray-500">
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
-          </button>
-        </div>
+      <!-- Header -->
+      <div class="bg-dark-blue text-white px-6 py-4 rounded-t-xl flex justify-between items-center">
+        <h3 class="text-xl font-bold">Vehicle Inspection Process - {{ registration?.id }}</h3>
+        <button @click="cancelInspection" class="text-white hover:text-gray-200 transition-colors">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+      </div>
 
-        <div v-if="registration" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+      <div class="p-6">
+        <div v-if="registration" class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
           <!-- Verification Code Banner -->
-          <div class="col-span-2 bg-blue-50 p-4 rounded-lg mb-4 border border-blue-200">
+          <div
+            class="col-span-2 bg-light-blue bg-opacity-10 p-4 rounded-lg mb-4 border border-light-blue"
+          >
             <div class="flex items-center justify-between">
               <div>
-                <h4 class="text-md font-medium text-blue-700 mb-1">Inspection Verification Code</h4>
+                <h4 class="text-md font-bold text-dark-blue mb-1">Inspection Verification Code</h4>
                 <p
                   v-if="registration.inspectionCode"
-                  class="text-sm text-blue-600 font-mono font-bold"
+                  class="text-lg text-light-blue font-mono font-bold tracking-wide"
                 >
                   {{ registration.inspectionCode }}
                 </p>
-                <p v-else class="text-sm text-red-600">
+                <p v-else class="text-sm text-red-600 font-medium">
                   No inspection code available. Please contact system administrator.
                 </p>
               </div>
-              <div class="text-blue-600 bg-blue-100 px-3 py-1 rounded-lg text-xs font-medium">
+              <div class="bg-dark-blue text-white px-4 py-2 rounded-lg text-xs font-bold">
                 VERIFY BEFORE INSPECTION
               </div>
             </div>
           </div>
 
           <!-- Current Vehicle Information Section -->
-          <div class="col-span-2 bg-gray-50 p-4 rounded-lg mb-4">
-            <h4 class="text-md font-medium text-gray-700 mb-2">Current Vehicle Information</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="col-span-2 bg-gray-50 p-5 rounded-xl mb-5 shadow-sm">
+            <h4 class="text-lg font-bold text-dark-blue mb-3">Current Vehicle Information</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
                 <p class="text-sm font-medium text-gray-500">Make</p>
-                <p class="text-sm">{{ registration.make }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.make }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Model</p>
-                <p class="text-sm">{{ registration.model }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.model }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Year</p>
-                <p class="text-sm">{{ registration.year }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.year }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Engine Number</p>
-                <p class="text-sm">{{ registration.engineNumber }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.engineNumber }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Chassis Number</p>
-                <p class="text-sm">{{ registration.chassisNumber }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.chassisNumber }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Color</p>
-                <p class="text-sm">{{ registration.color }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.color }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Vehicle Type</p>
-                <p class="text-sm">{{ registration.vehicleType }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.vehicleType }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Registration Type</p>
-                <p class="text-sm">{{ registration.registrationType }}</p>
+                <p class="text-base font-medium text-dark-blue">
+                  {{ registration.registrationType }}
+                </p>
               </div>
             </div>
           </div>
 
           <!-- Additional Vehicle Information Section -->
           <div class="col-span-2">
-            <h4 class="text-md font-medium text-gray-700 mb-3">Complete Vehicle Information</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h4 class="text-lg font-bold text-dark-blue mb-4">Complete Vehicle Information</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   MV File Number
                   <span v-if="requiredFields.includes('mvFileNumber')" class="text-red-600">*</span>
                 </label>
-                <div class="flex flex-col space-y-2">
+                <div class="flex flex-col space-y-3">
                   <div class="mb-2">
                     <label class="block text-xs font-medium text-gray-500 mb-1">
                       Region for MV File Number
                     </label>
                     <select
                       v-model="selectedRegion"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      class="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base"
                     >
                       <option v-for="region in regions" :key="region.code" :value="region.code">
                         {{ region.name }}
@@ -379,15 +382,15 @@ const canGenerateConductionSticker = computed(() => {
                     <input
                       v-model="additionalData.mvFileNumber"
                       type="text"
-                      class="flex-grow px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      class="flex-grow px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                       :class="{
-                        'border-red-500': validationErrors.mvFileNumber,
+                        'border-red-500 bg-red-50': validationErrors.mvFileNumber,
                         'border-gray-300': !validationErrors.mvFileNumber,
                       }"
                     />
                     <button
                       @click="additionalData.mvFileNumber = generateMVFileNumber()"
-                      class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      class="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
                       :disabled="!canGenerateMVFileNumber"
                       :class="{
                         'opacity-50 cursor-not-allowed': !canGenerateMVFileNumber,
@@ -402,25 +405,28 @@ const canGenerateConductionSticker = computed(() => {
                     </button>
                   </div>
                 </div>
-                <p v-if="validationErrors.mvFileNumber" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.mvFileNumber"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.mvFileNumber }}
                 </p>
                 <p class="mt-1 text-xs text-gray-500">Format: RR YY XXXXXX</p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Conduction Sticker
                 </label>
                 <div class="flex space-x-2">
                   <input
                     v-model="additionalData.conductionSticker"
                     type="text"
-                    class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    class="flex-grow px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   />
                   <button
                     @click="additionalData.conductionSticker = generateConductionSticker()"
-                    class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    class="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
                     :disabled="!canGenerateConductionSticker"
                     :class="{
                       'opacity-50 cursor-not-allowed': !canGenerateConductionSticker,
@@ -438,35 +444,35 @@ const canGenerateConductionSticker = computed(() => {
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1"> Vehicle Series </label>
+                <label class="block text-sm font-medium text-gray-700 mb-2"> Vehicle Series </label>
                 <input
                   v-model="additionalData.vehicleSeries"
                   type="text"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                 />
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Body Type
                   <span v-if="requiredFields.includes('bodyType')" class="text-red-600">*</span>
                 </label>
                 <input
                   v-model="additionalData.bodyType"
                   type="text"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.bodyType,
+                    'border-red-500 bg-red-50': validationErrors.bodyType,
                     'border-gray-300': !validationErrors.bodyType,
                   }"
                 />
-                <p v-if="validationErrors.bodyType" class="mt-1 text-sm text-red-600">
+                <p v-if="validationErrors.bodyType" class="mt-1 text-sm text-red-600 font-medium">
                   {{ validationErrors.bodyType }}
                 </p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Piston Displacement (cc)
                   <span v-if="requiredFields.includes('pistonDisplacement')" class="text-red-600"
                     >*</span
@@ -475,19 +481,22 @@ const canGenerateConductionSticker = computed(() => {
                 <input
                   v-model.number="additionalData.pistonDisplacement"
                   type="number"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.pistonDisplacement,
+                    'border-red-500 bg-red-50': validationErrors.pistonDisplacement,
                     'border-gray-300': !validationErrors.pistonDisplacement,
                   }"
                 />
-                <p v-if="validationErrors.pistonDisplacement" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.pistonDisplacement"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.pistonDisplacement }}
                 </p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Number of Cylinders
                   <span v-if="requiredFields.includes('numberOfCylinders')" class="text-red-600"
                     >*</span
@@ -496,27 +505,30 @@ const canGenerateConductionSticker = computed(() => {
                 <input
                   v-model.number="additionalData.numberOfCylinders"
                   type="number"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.numberOfCylinders,
+                    'border-red-500 bg-red-50': validationErrors.numberOfCylinders,
                     'border-gray-300': !validationErrors.numberOfCylinders,
                   }"
                 />
-                <p v-if="validationErrors.numberOfCylinders" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.numberOfCylinders"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.numberOfCylinders }}
                 </p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Fuel Type
                   <span v-if="requiredFields.includes('fuelType')" class="text-red-600">*</span>
                 </label>
                 <select
                   v-model="additionalData.fuelType"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.fuelType,
+                    'border-red-500 bg-red-50': validationErrors.fuelType,
                     'border-gray-300': !validationErrors.fuelType,
                   }"
                 >
@@ -526,62 +538,62 @@ const canGenerateConductionSticker = computed(() => {
                   <option value="Electric">Electric</option>
                   <option value="Hybrid">Hybrid</option>
                 </select>
-                <p v-if="validationErrors.fuelType" class="mt-1 text-sm text-red-600">
+                <p v-if="validationErrors.fuelType" class="mt-1 text-sm text-red-600 font-medium">
                   {{ validationErrors.fuelType }}
                 </p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Gross Vehicle Weight (kg)
                   <span v-if="requiredFields.includes('gvw')" class="text-red-600">*</span>
                 </label>
                 <input
                   v-model.number="additionalData.gvw"
                   type="number"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.gvw,
+                    'border-red-500 bg-red-50': validationErrors.gvw,
                     'border-gray-300': !validationErrors.gvw,
                   }"
                 />
-                <p v-if="validationErrors.gvw" class="mt-1 text-sm text-red-600">
+                <p v-if="validationErrors.gvw" class="mt-1 text-sm text-red-600 font-medium">
                   {{ validationErrors.gvw }}
                 </p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Net Weight (kg)
                   <span v-if="requiredFields.includes('netWeight')" class="text-red-600">*</span>
                 </label>
                 <input
                   v-model.number="additionalData.netWeight"
                   type="number"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.netWeight,
+                    'border-red-500 bg-red-50': validationErrors.netWeight,
                     'border-gray-300': !validationErrors.netWeight,
                   }"
                 />
-                <p v-if="validationErrors.netWeight" class="mt-1 text-sm text-red-600">
+                <p v-if="validationErrors.netWeight" class="mt-1 text-sm text-red-600 font-medium">
                   {{ validationErrors.netWeight }}
                 </p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Shipping Weight (kg)
                 </label>
                 <input
                   v-model.number="additionalData.shippingWeight"
                   type="number"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                 />
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Usage Classification
                   <span v-if="requiredFields.includes('usageClassification')" class="text-red-600"
                     >*</span
@@ -589,9 +601,9 @@ const canGenerateConductionSticker = computed(() => {
                 </label>
                 <select
                   v-model="additionalData.usageClassification"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.usageClassification,
+                    'border-red-500 bg-red-50': validationErrors.usageClassification,
                     'border-gray-300': !validationErrors.usageClassification,
                   }"
                 >
@@ -601,83 +613,89 @@ const canGenerateConductionSticker = computed(() => {
                   <option value="Government">Government</option>
                   <option value="Diplomatic">Diplomatic</option>
                 </select>
-                <p v-if="validationErrors.usageClassification" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.usageClassification"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.usageClassification }}
                 </p>
               </div>
 
               <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   First Registration Date
                 </label>
                 <input
                   v-model="additionalData.firstRegistrationDate"
                   type="date"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                 />
               </div>
             </div>
           </div>
 
           <!-- Inspection Findings -->
-          <div class="col-span-2 mt-4">
-            <h4 class="text-md font-medium text-gray-700 mb-2">
+          <div class="col-span-2 mt-5 bg-gray-50 p-5 rounded-xl">
+            <h4 class="text-lg font-bold text-dark-blue mb-3">
               Inspection Findings & Notes
               <span v-if="inspectionStatus === 'rejected'" class="text-red-600">*</span>
             </h4>
             <textarea
               v-model="inspectionNotes"
               rows="4"
-              class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              class="w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
               :class="{
-                'border-red-500': validationErrors.inspectionNotes,
+                'border-red-500 bg-red-50': validationErrors.inspectionNotes,
                 'border-gray-300': !validationErrors.inspectionNotes,
               }"
               placeholder="Enter inspection notes, findings, and recommendations..."
             ></textarea>
-            <p v-if="validationErrors.inspectionNotes" class="mt-1 text-sm text-red-600">
+            <p
+              v-if="validationErrors.inspectionNotes"
+              class="mt-1 text-sm text-red-600 font-medium"
+            >
               {{ validationErrors.inspectionNotes }}
             </p>
-          </div>
 
-          <!-- Inspection Status -->
-          <div class="col-span-2 mt-4">
-            <h4 class="text-md font-medium text-gray-700 mb-2">Inspection Result</h4>
-            <div class="flex space-x-4">
-              <label class="inline-flex items-center">
-                <input
-                  v-model="inspectionStatus"
-                  type="radio"
-                  class="form-radio h-4 w-4 text-blue-600"
-                  name="inspectionStatus"
-                  value="approved"
-                />
-                <span class="ml-2 text-sm text-gray-700">Approved</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input
-                  v-model="inspectionStatus"
-                  type="radio"
-                  class="form-radio h-4 w-4 text-red-600"
-                  name="inspectionStatus"
-                  value="rejected"
-                />
-                <span class="ml-2 text-sm text-gray-700">Rejected</span>
-              </label>
+            <!-- Inspection Status -->
+            <div class="mt-5">
+              <h4 class="text-md font-bold text-dark-blue mb-3">Inspection Result</h4>
+              <div class="flex space-x-6">
+                <label class="inline-flex items-center">
+                  <input
+                    v-model="inspectionStatus"
+                    type="radio"
+                    class="form-radio h-5 w-5 text-dark-blue"
+                    name="inspectionStatus"
+                    value="approved"
+                  />
+                  <span class="ml-2 text-base text-gray-700">Approved</span>
+                </label>
+                <label class="inline-flex items-center">
+                  <input
+                    v-model="inspectionStatus"
+                    type="radio"
+                    class="form-radio h-5 w-5 text-red-600"
+                    name="inspectionStatus"
+                    value="rejected"
+                  />
+                  <span class="ml-2 text-base text-gray-700">Rejected</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="flex justify-end space-x-3 mt-6 pt-3 border-t">
+        <div class="flex justify-end space-x-4 mt-6 pt-4 border-t">
           <button
             @click="cancelInspection"
-            class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="px-5 py-2.5 bg-gray-100 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
           >
             Cancel
           </button>
           <button
             @click="submitForm"
-            class="px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="px-5 py-2.5 bg-dark-blue border border-transparent rounded-lg shadow-sm text-base font-medium text-white hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
           >
             Submit Inspection
           </button>

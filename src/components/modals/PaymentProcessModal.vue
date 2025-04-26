@@ -76,17 +76,6 @@ const totalFee = computed(() => {
     .toFixed(2)
 })
 
-// Reset form when registration changes
-watch(
-  () => props.registration,
-  () => {
-    if (props.registration) {
-      resetForm()
-    }
-  },
-  { immediate: true },
-)
-
 // Define resetForm
 const resetForm = () => {
   paymentNotes.value = ''
@@ -103,6 +92,17 @@ const resetForm = () => {
 
   validationErrors.value = {}
 }
+
+// Reset form when registration changes
+watch(
+  () => props.registration,
+  () => {
+    if (props.registration) {
+      resetForm()
+    }
+  },
+  { immediate: true },
+)
 
 // Validate form
 const validateForm = (): boolean => {
@@ -169,101 +169,108 @@ const cancelPayment = () => {
 <template>
   <div
     v-if="isOpen"
-    class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50"
   >
     <div
-      class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto"
+      class="relative mx-auto p-0 w-full max-w-2xl shadow-xl rounded-xl bg-white max-h-[90vh] overflow-y-auto"
     >
-      <div class="mt-3">
-        <div class="flex justify-between items-center pb-3 border-b">
-          <h3 class="text-lg font-medium text-gray-900">
-            Payment Processing - {{ registration?.id }}
-          </h3>
-          <button @click="cancelPayment" class="text-gray-400 hover:text-gray-500">
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
-          </button>
-        </div>
+      <!-- Header -->
+      <div class="bg-dark-blue text-white px-6 py-4 rounded-t-xl flex justify-between items-center">
+        <h3 class="text-xl font-bold">Payment Processing - {{ registration?.id }}</h3>
+        <button @click="cancelPayment" class="text-white hover:text-gray-200 transition-colors">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+      </div>
 
-        <div v-if="registration" class="mt-4">
+      <div class="p-6">
+        <div v-if="registration">
           <!-- Payment Verification Code Banner -->
-          <div class="bg-blue-50 p-4 rounded-lg mb-4 border border-blue-200">
+          <div class="bg-light-blue bg-opacity-10 p-4 rounded-lg mb-6 border border-light-blue">
             <div class="flex items-center justify-between">
               <div>
-                <h4 class="text-md font-medium text-blue-700 mb-1">Payment Verification Code</h4>
+                <h4 class="text-md font-bold text-dark-blue mb-1">Payment Verification Code</h4>
                 <p
                   v-if="registration.paymentCode"
-                  class="text-sm text-blue-600 font-mono font-bold"
+                  class="text-lg text-light-blue font-mono font-bold tracking-wide"
                 >
                   {{ registration.paymentCode }}
                 </p>
-                <p v-else class="text-sm text-red-600">
+                <p v-else class="text-sm text-red-600 font-medium">
                   No payment code available. Please contact system administrator.
                 </p>
               </div>
-              <div class="text-blue-600 bg-blue-100 px-3 py-1 rounded-lg text-xs font-medium">
+              <div class="bg-dark-blue text-white px-4 py-2 rounded-lg text-xs font-bold">
                 VERIFY BEFORE PAYMENT
               </div>
             </div>
           </div>
 
-          <!-- Payment Information Section -->
-          <div class="bg-gray-50 p-4 rounded-lg mb-4">
-            <h4 class="text-md font-medium text-gray-700 mb-2">Registration Details</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Registration Details Section -->
+          <div class="bg-gray-50 p-5 rounded-xl mb-6 shadow-sm">
+            <h4 class="text-lg font-bold text-dark-blue mb-3">Registration Details</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <p class="text-sm font-medium text-gray-500">Vehicle</p>
-                <p class="text-sm">
+                <p class="text-base font-medium text-dark-blue">
                   {{ registration.make }} {{ registration.model }} ({{ registration.year }})
                 </p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Registration Type</p>
-                <p class="text-sm">{{ registration.registrationType }}</p>
+                <p class="text-base font-medium text-dark-blue">
+                  {{ registration.registrationType }}
+                </p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Owner</p>
-                <p class="text-sm">{{ registration.applicantName || 'Not specified' }}</p>
+                <p class="text-base font-medium text-dark-blue">
+                  {{ registration.applicantName || 'Not specified' }}
+                </p>
               </div>
             </div>
 
             <!-- Fee Breakdown -->
-            <div class="mt-4 border-t pt-3">
-              <h5 class="text-sm font-medium text-gray-700 mb-2">Fee Breakdown</h5>
-              <div class="space-y-1">
+            <div class="mt-5 border-t border-gray-200 pt-4">
+              <h5 class="text-md font-bold text-dark-blue mb-3">Fee Breakdown</h5>
+              <div class="space-y-2">
                 <div class="flex justify-between">
                   <span class="text-sm text-gray-600">Registration Fee</span>
-                  <span class="text-sm text-gray-600">₱{{ registrationFee.toFixed(2) }}</span>
+                  <span class="text-sm font-medium text-dark-blue"
+                    >₱{{ registrationFee.toFixed(2) }}</span
+                  >
                 </div>
                 <div class="flex justify-between">
                   <span class="text-sm text-gray-600">Computer Fee</span>
-                  <span class="text-sm text-gray-600">₱{{ computerFee.toFixed(2) }}</span>
+                  <span class="text-sm font-medium text-dark-blue"
+                    >₱{{ computerFee.toFixed(2) }}</span
+                  >
                 </div>
                 <div v-if="registration.isNewVehicle" class="flex justify-between">
                   <span class="text-sm text-gray-600">Plate Issuance Fee</span>
-                  <span class="text-sm text-gray-600">₱450.00</span>
+                  <span class="text-sm font-medium text-dark-blue">₱450.00</span>
                 </div>
-                <div class="flex justify-between font-medium border-t pt-1 mt-1">
-                  <span class="text-sm text-gray-700">Total</span>
-                  <span class="text-sm text-gray-700">₱{{ totalFee }}</span>
+                <div class="flex justify-between font-bold border-t border-gray-300 pt-2 mt-2">
+                  <span class="text-base text-dark-blue">Total</span>
+                  <span class="text-base text-dark-blue">₱{{ totalFee }}</span>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Payment Processing Section -->
-          <div class="mt-4">
-            <h4 class="text-md font-medium text-gray-700 mb-3">Payment Processing</h4>
+          <div class="mb-6">
+            <h4 class="text-lg font-bold text-dark-blue mb-4">Payment Processing</h4>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Amount Paid (₱) <span class="text-red-600">*</span>
                 </label>
                 <input
@@ -271,135 +278,138 @@ const cancelPayment = () => {
                   type="number"
                   min="0"
                   step="0.01"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.amountPaid,
+                    'border-red-500 bg-red-50': validationErrors.amountPaid,
                     'border-gray-300': !validationErrors.amountPaid,
                   }"
                 />
-                <p v-if="validationErrors.amountPaid" class="mt-1 text-sm text-red-600">
+                <p v-if="validationErrors.amountPaid" class="mt-1 text-sm text-red-600 font-medium">
                   {{ validationErrors.amountPaid }}
                 </p>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Payment Reference Number
                 </label>
                 <input
                   v-model="paymentDetails.referenceNumber"
                   type="text"
                   readonly
-                  class="w-full px-3 py-2 border border-gray-300 bg-gray-50 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono"
+                  class="w-full px-4 py-3 border border-gray-300 bg-gray-50 rounded-lg shadow-sm text-base font-mono tracking-wide"
                 />
                 <p class="mt-1 text-xs text-gray-500">Automatically generated payment reference</p>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Payment Date <span class="text-red-600">*</span>
                 </label>
                 <input
                   v-model="paymentDetails.paymentDate"
                   type="date"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.paymentDate,
+                    'border-red-500 bg-red-50': validationErrors.paymentDate,
                     'border-gray-300': !validationErrors.paymentDate,
                   }"
                 />
-                <p v-if="validationErrors.paymentDate" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.paymentDate"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.paymentDate }}
                 </p>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Payment Method <span class="text-red-600">*</span>
                 </label>
                 <input
                   v-model="paymentDetails.paymentMethod"
                   type="text"
                   readonly
-                  class="w-full px-3 py-2 border border-gray-300 bg-gray-50 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-3 border border-gray-300 bg-gray-50 rounded-lg shadow-sm text-base"
                 />
                 <p class="mt-1 text-xs text-gray-500">Fixed to Cash payment only</p>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Receipt Number <span class="text-red-600">*</span>
                 </label>
                 <input
                   v-model="paymentDetails.receiptNumber"
                   type="text"
                   readonly
-                  class="w-full px-3 py-2 border border-gray-300 bg-gray-50 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono"
+                  class="w-full px-4 py-3 border border-gray-300 bg-gray-50 rounded-lg shadow-sm text-base font-mono tracking-wide"
                 />
                 <p class="mt-1 text-xs text-gray-500">Automatically generated receipt number</p>
               </div>
             </div>
 
             <!-- Payment Notes -->
-            <div class="mt-4">
-              <h4 class="text-md font-medium text-gray-700 mb-2">
+            <div class="mt-5">
+              <h4 class="text-md font-bold text-dark-blue mb-2">
                 Payment Notes
                 <span v-if="paymentStatus === 'rejected'" class="text-red-600">*</span>
               </h4>
               <textarea
                 v-model="paymentNotes"
                 rows="3"
-                class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                class="w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                 :class="{
-                  'border-red-500': validationErrors.paymentNotes,
+                  'border-red-500 bg-red-50': validationErrors.paymentNotes,
                   'border-gray-300': !validationErrors.paymentNotes,
                 }"
                 placeholder="Enter payment notes or reasons for rejection..."
               ></textarea>
-              <p v-if="validationErrors.paymentNotes" class="mt-1 text-sm text-red-600">
+              <p v-if="validationErrors.paymentNotes" class="mt-1 text-sm text-red-600 font-medium">
                 {{ validationErrors.paymentNotes }}
               </p>
             </div>
 
             <!-- Payment Status -->
-            <div class="mt-4">
-              <h4 class="text-md font-medium text-gray-700 mb-2">Payment Status</h4>
-              <div class="flex space-x-4">
+            <div class="mt-5 bg-gray-50 p-4 rounded-lg">
+              <h4 class="text-md font-bold text-dark-blue mb-3">Payment Status</h4>
+              <div class="flex space-x-6">
                 <label class="inline-flex items-center">
                   <input
                     v-model="paymentStatus"
                     type="radio"
-                    class="form-radio h-4 w-4 text-blue-600"
+                    class="form-radio h-5 w-5 text-dark-blue"
                     name="paymentStatus"
                     value="approved"
                   />
-                  <span class="ml-2 text-sm text-gray-700">Approved</span>
+                  <span class="ml-2 text-base text-gray-700">Approved</span>
                 </label>
                 <label class="inline-flex items-center">
                   <input
                     v-model="paymentStatus"
                     type="radio"
-                    class="form-radio h-4 w-4 text-red-600"
+                    class="form-radio h-5 w-5 text-red-600"
                     name="paymentStatus"
                     value="rejected"
                   />
-                  <span class="ml-2 text-sm text-gray-700">Rejected</span>
+                  <span class="ml-2 text-base text-gray-700">Rejected</span>
                 </label>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="flex justify-end space-x-3 mt-6 pt-3 border-t">
+        <div class="flex justify-end space-x-4 mt-6 pt-4 border-t">
           <button
             @click="cancelPayment"
-            class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="px-5 py-2.5 bg-gray-100 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
           >
             Cancel
           </button>
           <button
             @click="submitPayment"
-            class="px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="px-5 py-2.5 bg-dark-blue border border-transparent rounded-lg shadow-sm text-base font-medium text-white hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
           >
             Process Payment
           </button>
