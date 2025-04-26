@@ -75,21 +75,28 @@ const validateAndLogin = () => {
 
 <template>
   <div
-    class="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center px-4 sm:px-6 lg:px-8"
+    class="min-h-screen bg-gradient-to-br from-dark-blue via-light-blue to-blue-400 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12"
   >
     <div
-      class="max-w-md w-full space-y-8 bg-white/90 backdrop-blur-sm p-8 rounded-xl shadow-2xl border border-white/20"
+      class="max-w-md w-full bg-white/95 backdrop-blur-md p-8 rounded-xl shadow-2xl border border-white/30"
     >
-      <div>
-        <img class="mx-auto h-16 w-auto" src="/Land_Transportation_Office.webp" alt="LTO Logo" />
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Admin Portal</h2>
-        <p class="mt-2 text-center text-sm text-gray-600">Secure access for administrators only</p>
+      <!-- Logo and Header -->
+      <div class="text-center mb-8">
+        <div class="bg-dark-blue inline-flex rounded-full p-3 mb-4 shadow-md">
+          <img class="h-16 w-auto" src="/Land_Transportation_Office.webp" alt="LTO Logo" />
+        </div>
+        <h2 class="text-3xl font-extrabold text-dark-blue">Admin Portal</h2>
+        <p class="mt-2 text-sm text-gray-600">Secure access for administrators only</p>
       </div>
 
-      <form @submit.prevent="validateAndLogin" class="mt-8 space-y-6" novalidate>
-        <div class="rounded-md shadow-sm -space-y-px">
-          <div>
-            <label for="email" class="sr-only">Email address</label>
+      <form @submit.prevent="validateAndLogin" class="space-y-6" novalidate>
+        <!-- Email Field -->
+        <div class="space-y-1">
+          <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+          <div class="relative rounded-md shadow-sm">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <font-awesome-icon :icon="['fas', 'envelope']" class="text-gray-400" />
+            </div>
             <input
               id="email"
               v-model="email"
@@ -98,20 +105,23 @@ const validateAndLogin = () => {
               autocomplete="email"
               required
               @blur="validateEmail"
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-              :class="{ 'border-red-500': errors.email }"
+              class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue transition-all text-base"
+              :class="{ 'border-red-500 bg-red-50': errors.email }"
               placeholder="Admin Email"
             />
-            <p
-              v-if="errors.email"
-              class="mt-1 text-sm text-red-600 animate-appear font-medium pl-1"
-            >
-              {{ errors.email }}
-            </p>
           </div>
+          <p v-if="errors.email" class="mt-1 text-sm text-red-600 animate-appear font-medium pl-1">
+            {{ errors.email }}
+          </p>
+        </div>
 
-          <div>
-            <label for="password" class="sr-only">Password</label>
+        <!-- Password Field -->
+        <div class="space-y-1">
+          <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+          <div class="relative rounded-md shadow-sm">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <font-awesome-icon :icon="['fas', 'lock']" class="text-gray-400" />
+            </div>
             <input
               id="password"
               v-model="password"
@@ -120,22 +130,23 @@ const validateAndLogin = () => {
               autocomplete="current-password"
               required
               @blur="validatePassword"
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-              :class="{ 'border-red-500': errors.password }"
+              class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue transition-all text-base"
+              :class="{ 'border-red-500 bg-red-50': errors.password }"
               placeholder="Password"
             />
-            <p
-              v-if="errors.password"
-              class="mt-1 text-sm text-red-600 animate-appear font-medium pl-1"
-            >
-              {{ errors.password }}
-            </p>
           </div>
+          <p
+            v-if="errors.password"
+            class="mt-1 text-sm text-red-600 animate-appear font-medium pl-1"
+          >
+            {{ errors.password }}
+          </p>
         </div>
 
+        <!-- Form Error Message -->
         <div
           v-if="errors.form"
-          class="rounded-md bg-red-50 p-4 animate-appear border border-red-100 shadow-sm"
+          class="rounded-lg bg-red-50 p-4 animate-appear border border-red-100 shadow-sm"
         >
           <div class="flex">
             <div class="flex-shrink-0">
@@ -150,19 +161,31 @@ const validateAndLogin = () => {
           </div>
         </div>
 
-        <div>
+        <!-- Login Button -->
+        <div class="pt-4">
           <button
             type="submit"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-base font-medium rounded-lg text-white bg-dark-blue hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-all shadow-md"
           >
             <span class="absolute left-0 inset-y-0 flex items-center pl-3">
               <font-awesome-icon
                 :icon="['fas', 'lock']"
-                class="h-5 w-5 text-blue-500 group-hover:text-blue-400"
+                class="h-5 w-5 text-light-blue group-hover:text-blue-100"
               />
             </span>
             Sign in
           </button>
+        </div>
+
+        <!-- Return to Main Site Link -->
+        <div class="text-center mt-6">
+          <a
+            href="/"
+            class="inline-flex items-center text-sm font-medium text-light-blue hover:text-dark-blue transition-colors"
+          >
+            <font-awesome-icon :icon="['fas', 'arrow-left']" class="mr-2 h-4 w-4" />
+            Return to main site
+          </a>
         </div>
       </form>
     </div>
