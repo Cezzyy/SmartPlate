@@ -55,6 +55,7 @@ type RegistrationForm struct {
     VehicleID          string    `db:"vehicle_id"            json:"vehicle_id"`
     SubmittedDate      time.Time `db:"submitted_date"        json:"submitted_date"`
     Status             string    `db:"status"                json:"status"`
+    Region             string    `db:"region"               json:"region"`
     RegistrationType   string    `db:"registration_type"     json:"registration_type"`
 }
 type RegistrationInspection struct {
@@ -92,6 +93,7 @@ type CreateRegistrationFormParams struct {
     LTOClientID      string `json:"lto_client_id"      db:"lto_client_id"`
     VehicleID        string `json:"vehicle_id"         db:"vehicle_id"`
     Status           string `json:"status"             db:"status"`
+    Region           string    `json:"region"         db:"region"`
     RegistrationType string `json:"registration_type"  db:"registration_type"`
 }
 

@@ -34,17 +34,18 @@ func (r *registrationFormRepo) Create(
     err := r.db.
         QueryRowxContext(ctx, `
       INSERT INTO registration_form
-        (lto_client_id, vehicle_id, status, registration_type)
+        (lto_client_id, vehicle_id, status, region, registration_type)
       VALUES
-        ($1, $2, $3, $4)
+        ($1, $2, $3, $4, $5)
       RETURNING
         registration_form_id,
         lto_client_id,
         vehicle_id,
         submitted_date,
         status,
+        region,
         registration_type
-    `, p.LTOClientID, p.VehicleID, p.Status, p.RegistrationType).
+    `, p.LTOClientID, p.VehicleID, p.Status, p.Region, p.RegistrationType).
         StructScan(&full)
     if err != nil {
         return nil, err
@@ -61,6 +62,7 @@ func (r *registrationFormRepo) GetAll(ctx context.Context) ([]models.Registratio
           vehicle_id,
           submitted_date,
           status,
+          region,
           registration_type
         FROM registration_form
         ORDER BY submitted_date DESC
@@ -77,6 +79,7 @@ func (r *registrationFormRepo) GetByID(ctx context.Context, id string) (*models.
           vehicle_id,
           submitted_date,
           status,
+          region,
           registration_type
         FROM registration_form
         WHERE registration_form_id = $1
@@ -93,6 +96,7 @@ func (r *registrationFormRepo) Update(ctx context.Context, f *models.Registratio
           lto_client_id     = :lto_client_id,
           vehicle_id        = :vehicle_id,
           status            = :status,
+          region            = :region,
           registration_type = :registration_type
         WHERE registration_form_id = :registration_form_id
     `, f)
@@ -119,6 +123,7 @@ func (r *registrationFormRepo) GetByVehicleID(
         vehicle_id,
         submitted_date,
         status,
+        region,
         registration_type
       FROM registration_form
       WHERE vehicle_id = $1

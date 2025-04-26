@@ -133,9 +133,17 @@ func main() {
 	g.DELETE("/:id/document/:docId", rh.DeleteDocument)//working
 
 	//websocket
+	scanLogRepo := repository.NewScanLogRepository(db)
+	ws.SetScanLogRepository(scanLogRepo)
 	e.GET("/ws/scan", ws.ScannerWS(plateRepo, rfRepo, userRepo))
 
-	// Start server
+// scan-log endpoints
+	scanLogHandler   := handlers.NewScanLogHandler(scanLogRepo)
+	e.POST("/api/scan-log", scanLogHandler.Create)
+	e.GET( "/api/scan-log", scanLogHandler.GetAll)
+	e.GET( "/api/scan-log/:id", scanLogHandler.GetByID)
+
+	// // Start server
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
     LogStatus: true,
