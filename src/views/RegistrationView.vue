@@ -1,7 +1,8 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import UserRegistrationGuard from '@/components/navigation/UserRegistrationGuard.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -15,11 +16,21 @@ onMounted(() => {
     // If registration data exists, pre-fill the email
     formData.email = userStore.registrationData.email || ''
   }
+
+  // Set current step from store
+  if (userStore.currentStep > 1) {
+    currentStep.value = userStore.currentStep
+  }
 })
 
 // Current step in registration process
 const currentStep = ref(1)
 const totalSteps = 5
+
+// Watch for step changes to update store
+watch(currentStep, (newValue) => {
+  userStore.updateCurrentStep(newValue)
+})
 
 // Form data for registration
 const formData = reactive({
@@ -80,10 +91,16 @@ const formData = reactive({
   city: '',
   barangay: '',
   zipCode: '',
-
-  // Terms and conditions
-  acceptTerms: false,
 })
+
+// Watch for form changes to mark as dirty
+watch(
+  formData,
+  () => {
+    userStore.setFormDirty(true)
+  },
+  { deep: true },
+)
 
 // Error handling
 const errors = reactive({
@@ -97,9 +114,6 @@ const errors = reactive({
 
   // Personal Information
   dateOfBirth: '',
-
-  // Terms
-  terms: '',
 
   // Form
   form: '',
@@ -177,7 +191,7 @@ const validateCurrentStep = () => {
     case 4: // People Information
       return true // Optional fields
     case 5: // Address and Terms
-      return validateAddressAndTerms()
+      return validateAddress()
     default:
       return false
   }
@@ -245,96 +259,133 @@ const validatePersonalInfo = () => {
   return isValid
 }
 
-const validateAddressAndTerms = () => {
-  let isValid = true
-
-  // Terms validation
-  if (!formData.acceptTerms) {
-    errors.terms = 'You must accept the terms and conditions'
-    isValid = false
-  } else {
-    errors.terms = ''
-  }
-
-  return isValid
+const validateAddress = () => {
+  // Address validation logic here if needed
+  return true
 }
 
 // Form submission
 const submitRegistration = async () => {
-  if (!validateAddressAndTerms()) {
+  if (!validateAddress()) {
     return
   }
 
   try {
     isSubmitting.value = true
     errors.form = 'Creating your account...'
-    
+
     // Register the user using the Pinia store
     await userStore.register(formData)
-    
+
     // Redirect to home page after successful registration
     router.push('/home')
   } catch {
     errors.form = userStore.error || 'Registration failed. Please try again.'
-  } finally {
     isSubmitting.value = false
   }
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- Header -->
-    <header class="bg-gradient-to-r from-dark-blue to-blue-900 text-white shadow-md">
-      <div class="container mx-auto px-4 py-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <h1 class="text-xl font-bold">Create Account</h1>
+  <div>
+    <!-- Navigation Guard Component -->
+    <UserRegistrationGuard />
+
+    <div class="min-h-screen flex">
+      <!-- Left Column - Welcome Text -->
+      <div
+        class="hidden md:flex md:w-1/3 bg-gradient-to-br from-dark-blue to-black p-8 text-white flex-col justify-center items-center relative overflow-hidden"
+      >
+        <!-- Abstract background elements -->
+        <div class="absolute top-0 right-0 w-64 h-64 bg-light-blue/10 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 left-0 w-72 h-72 bg-red/10 rounded-full blur-3xl"></div>
+
+        <div class="max-w-md mx-auto z-10">
+          <div class="mb-8 p-3 bg-white/10 inline-block rounded-lg backdrop-blur-sm">
+            <img src="/Land_Transportation_Office.webp" alt="SmartPlate Logo" class="h-12" />
           </div>
+          <h1 class="text-4xl font-bold mb-6">Complete Your Registration</h1>
+          <p class="text-lg mb-8 text-white/80">
+            Please provide additional details to complete your SmartPlate account setup.
+          </p>
+          <div class="border-t border-white/20 w-24 mx-auto my-8"></div>
+          <p class="mb-6 text-white/80">Already registered? Sign in to your account.</p>
+          <a
+            href="#"
+            @click.prevent="cancelRegistration"
+            class="inline-block bg-red text-white font-semibold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all transform hover:-translate-y-0.5 hover:shadow-lg"
+          >
+            Back to Login
+          </a>
+        </div>
+
+        <!-- Bottom decorative element -->
+        <div class="absolute bottom-8 left-8 right-8 flex justify-between text-white/30 text-xs">
+          <span>© 2025 SmartPlate</span>
         </div>
       </div>
-    </header>
 
-    <!-- Main Content -->
-    <main class="container mx-auto px-4 py-8">
-      <div
-        class="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden transform transition-all duration-300 hover:shadow-xl"
-      >
-        <!-- Progress Bar -->
-        <div class="w-full bg-gray-200 h-3">
-          <div
-            class="bg-gradient-to-r from-blue-500 to-blue-600 h-3 transition-all duration-500 ease-in-out rounded-r-full"
-            :style="{ width: `${progressPercentage}%` }"
-          ></div>
+      <!-- Right Column - Registration Form -->
+      <div class="w-full md:w-2/3 bg-gradient-to-br from-light-blue/5 to-white p-5 flex flex-col">
+        <!-- Header with Back Button -->
+        <div class="flex items-center mb-6">
+          <button
+            @click="cancelRegistration"
+            class="text-dark-blue hover:text-red transition-colors focus:outline-none mr-4 group"
+          >
+            <font-awesome-icon
+              :icon="['fas', 'arrow-left']"
+              class="h-5 w-5 group-hover:-translate-x-1 transition-transform"
+            />
+          </button>
+          <h1 class="text-2xl font-bold text-dark-blue">Create Account</h1>
         </div>
 
-        <!-- Step Indicator -->
-        <div class="bg-gradient-to-r from-gray-50 to-blue-50 p-5 border-b border-gray-200">
-          <div class="flex justify-between items-center">
-            <div class="text-sm font-semibold text-dark-blue flex items-center">
+        <!-- Progress Bar and Steps -->
+        <div class="mb-8 max-w-4xl mx-auto w-full">
+          <div class="flex justify-between items-center mb-2">
+            <div class="text-sm font-semibold text-dark-blue">
               <span
-                class="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center mr-2"
+                class="bg-dark-blue text-white w-6 h-6 inline-flex items-center justify-center rounded-full mr-2"
                 >{{ currentStep }}</span
               >
-              <span>Step {{ currentStep }} of {{ totalSteps }}</span>
+              Step {{ currentStep }} of {{ totalSteps }}
             </div>
-            <div class="text-sm font-medium text-blue-600">
+            <div class="text-sm text-blue-600 font-medium">
               {{ Math.round(progressPercentage) }}% Complete
             </div>
           </div>
-
-          <!-- Step Titles -->
-          <div class="flex justify-between mt-4 px-2">
+          <div class="w-full bg-gray-200 h-2 rounded-full">
+            <div
+              class="bg-gradient-to-r from-dark-blue to-light-blue h-2 rounded-full transition-all duration-500 ease-in-out"
+              :style="{ width: `${progressPercentage}%` }"
+            ></div>
+          </div>
+          <!-- Step Indicators -->
+          <div class="flex justify-between mt-4">
             <div
               v-for="step in totalSteps"
               :key="step"
-              class="text-xs font-medium transition-all duration-300"
+              class="text-xs font-medium transition-all duration-300 flex flex-col items-center"
               :class="{
-                'text-blue-600': currentStep === step,
-                'text-gray-400': currentStep !== step,
+                'text-dark-blue': currentStep >= step,
+                'text-gray-400': currentStep < step,
               }"
             >
-              {{
+              <div
+                class="w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all shadow-sm"
+                :class="{
+                  'bg-dark-blue text-white shadow-md shadow-dark-blue/20': currentStep === step,
+                  'bg-light-blue/20 text-dark-blue': currentStep > step,
+                  'bg-gray-100 text-gray-400': currentStep < step,
+                }"
+              >
+                <span v-if="currentStep > step">
+                  <font-awesome-icon :icon="['fas', 'check']" class="h-4 w-4" />
+                </span>
+                <span v-else class="text-sm">{{ step }}</span>
+              </div>
+              <span>{{
                 step === 1
                   ? 'Account'
                   : step === 2
@@ -344,663 +395,834 @@ const submitRegistration = async () => {
                       : step === 4
                         ? 'People'
                         : 'Address'
-              }}
+              }}</span>
             </div>
           </div>
         </div>
 
         <!-- Form Content -->
-        <div class="p-8">
-          <!-- Step 1: Account Information -->
-          <div v-if="currentStep === 1" class="space-y-6">
-            <h2 class="text-xl font-bold text-dark-blue">Account Information</h2>
-            <p class="text-gray-600">Please provide your basic account details</p>
+        <div class="flex-grow overflow-y-auto">
+          <div
+            class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8 mb-8 transition-all duration-300 hover:shadow-xl"
+          >
+            <!-- Step 1: Account Information -->
+            <div v-if="currentStep === 1" class="space-y-6">
+              <h2 class="text-xl font-bold text-dark-blue flex items-center">
+                <font-awesome-icon :icon="['fas', 'user-circle']" class="mr-3 text-blue-500" />
+                Account Information
+              </h2>
+              <p class="text-gray-600 mb-8">Please provide your basic account details</p>
 
-            <!-- Name Fields -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <!-- First Name -->
-              <div class="flex flex-col space-y-1">
-                <label for="firstName" class="text-sm font-medium text-gray-700"
-                  >First Name <span class="text-red-500">*</span></label
-                >
-                <input
-                  id="firstName"
-                  v-model="formData.firstName"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 hover:border-blue-300"
-                  :class="[errors.firstName ? 'border-red-500' : '']"
-                  placeholder="Enter your first name"
-                />
-                <div v-if="errors.firstName" class="text-red-500 text-xs mt-1">
-                  {{ errors.firstName }}
-                </div>
-              </div>
-
-              <!-- Middle Name -->
-              <div class="flex flex-col space-y-1">
-                <label for="middleName" class="text-sm font-medium text-gray-700"
-                  >Middle Name</label
-                >
-                <input
-                  id="middleName"
-                  v-model="formData.middleName"
-                  type="text"
-                  placeholder="Optional"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 hover:border-blue-300"
-                />
-              </div>
-
-              <!-- Last Name -->
-              <div class="flex flex-col space-y-1">
-                <label for="lastName" class="text-sm font-medium text-gray-700"
-                  >Last Name <span class="text-red-500">*</span></label
-                >
-                <input
-                  id="lastName"
-                  v-model="formData.lastName"
-                  type="text"
-                  placeholder="Enter your last name"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 hover:border-blue-300"
-                  :class="[errors.lastName ? 'border-red-500' : '']"
-                />
-                <div v-if="errors.lastName" class="text-red-500 text-xs mt-1">
-                  {{ errors.lastName }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Email -->
-            <div class="flex flex-col space-y-1">
-              <label for="email" class="text-sm font-medium text-gray-700"
-                >Email <span class="text-red-500">*</span></label
-              >
-              <input
-                id="email"
-                v-model="formData.email"
-                type="email"
-                readonly
-                disabled
-                :placeholder="$route.query.email || 'your.email@example.com'"
-                class="border border-gray-300 rounded-lg p-2 bg-gray-100 cursor-not-allowed"
-                :class="[errors.email ? 'border-red-500' : '']"
-              />
-              <div v-if="errors.email" class="text-red-500 text-xs mt-1">
-                {{ errors.email }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 2: Contact Information -->
-          <div v-if="currentStep === 2" class="space-y-6">
-            <h2 class="text-xl font-bold text-dark-blue">Contact Information</h2>
-            <p class="text-gray-600">How can we reach you?</p>
-
-            <div class="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">
-              <p class="text-sm text-blue-800">
-                Your contact information will be used for important notifications about your vehicle
-                registration.
-              </p>
-            </div>
-
-            <!-- Telephone Number -->
-            <div class="flex flex-col space-y-1">
-              <label for="telephoneNumber" class="text-sm font-medium text-gray-700"
-                >Telephone Number</label
-              >
-              <input
-                id="telephoneNumber"
-                v-model="formData.telephoneNumber"
-                type="tel"
-                placeholder="(02) XXXX-XXXX"
-                class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 hover:border-blue-300"
-              />
-            </div>
-
-            <!-- Mobile Number with Area Code -->
-            <div class="flex flex-col space-y-1">
-              <label for="mobileNumber" class="text-sm font-medium text-gray-700"
-                >Mobile Number <span class="text-red-500">*</span></label
-              >
-              <div class="flex space-x-2">
-                <select
-                  v-model="formData.intAreaCode"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-24 transition-all duration-200 hover:border-blue-300"
-                >
-                  <option value="+63">+63</option>
-                  <option value="+1">+1</option>
-                  <option value="+44">+44</option>
-                  <option value="+61">+61</option>
-                </select>
-                <input
-                  id="mobileNumber"
-                  v-model="formData.mobileNumber"
-                  type="tel"
-                  placeholder="9XX XXX XXXX"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none flex-1 transition-all duration-200 hover:border-blue-300"
-                  :class="[errors.mobileNumber ? 'border-red-500' : '']"
-                />
-              </div>
-              <div v-if="errors.mobileNumber" class="text-red-500 text-xs mt-1">
-                {{ errors.mobileNumber }}
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 3: Personal Information -->
-          <div v-if="currentStep === 3" class="space-y-6">
-            <h2 class="text-xl font-bold text-dark-blue">Personal Information</h2>
-            <p class="text-gray-600">Tell us more about yourself</p>
-
-            <div class="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">
-              <p class="text-sm text-blue-800">
-                This information will be used for your official vehicle registration documents.
-              </p>
-            </div>
-
-            <!-- General Information -->
-            <div class="space-y-4">
-              <h3 class="text-lg font-semibold text-dark-blue">General Information</h3>
-
-              <!-- Nationality and Civil Status -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex flex-col space-y-1">
-                  <label for="nationality" class="text-sm font-medium text-gray-700"
-                    >Nationality</label
+              <!-- Name Fields -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- First Name -->
+                <div class="relative group">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'user']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="firstName"
+                      v-model="formData.firstName"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      :class="[errors.firstName ? 'border-red text-red' : 'border-gray-300']"
+                      placeholder=" "
+                    />
+                    <label
+                      for="firstName"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      First Name
+                    </label>
+                  </div>
+                  <label
+                    for="firstName"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
                   >
-                  <input
-                    id="nationality"
-                    v-model="formData.nationality"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div class="flex flex-col space-y-1">
-                  <label for="civilStatus" class="text-sm font-medium text-gray-700"
-                    >Civil Status</label
-                  >
-                  <select
-                    id="civilStatus"
-                    v-model="formData.civilStatus"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="Single">Single</option>
-                    <option value="Married">Married</option>
-                    <option value="Divorced">Divorced</option>
-                    <option value="Widowed">Widowed</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Date of Birth and Place of Birth -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex flex-col space-y-1">
-                  <label for="dateOfBirth" class="text-sm font-medium text-gray-700"
-                    >Date of Birth <span class="text-red-500">*</span></label
-                  >
-                  <input
-                    id="dateOfBirth"
-                    v-model="formData.dateOfBirth"
-                    type="date"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    :class="[errors.dateOfBirth ? 'border-red-500' : '']"
-                  />
-                  <div v-if="errors.dateOfBirth" class="text-red-500 text-xs mt-1">
-                    {{ errors.dateOfBirth }}
+                    First Name <span class="text-red">*</span>
+                  </label>
+                  <div v-if="errors.firstName" class="flex items-center gap-2 mt-1 text-red">
+                    <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                    <p class="text-xs">{{ errors.firstName }}</p>
                   </div>
                 </div>
-                <div class="flex flex-col space-y-1">
-                  <label for="placeOfBirth" class="text-sm font-medium text-gray-700"
-                    >Place of Birth</label
+
+                <!-- Middle Name -->
+                <div class="relative group">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'user']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="middleName"
+                      v-model="formData.middleName"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      placeholder=" "
+                    />
+                    <label
+                      for="middleName"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      Middle Name (Optional)
+                    </label>
+                  </div>
+                  <label
+                    for="middleName"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
                   >
+                    Middle Name
+                  </label>
+                </div>
+
+                <!-- Last Name -->
+                <div class="relative group">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'user']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="lastName"
+                      v-model="formData.lastName"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      :class="[errors.lastName ? 'border-red text-red' : 'border-gray-300']"
+                      placeholder=" "
+                    />
+                    <label
+                      for="lastName"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      Last Name
+                    </label>
+                  </div>
+                  <label
+                    for="lastName"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                  >
+                    Last Name <span class="text-red">*</span>
+                  </label>
+                  <div v-if="errors.lastName" class="flex items-center gap-2 mt-1 text-red">
+                    <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                    <p class="text-xs">{{ errors.lastName }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Email -->
+              <div class="relative group mt-8">
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <font-awesome-icon :icon="['fas', 'envelope']" class="h-5 w-5 text-gray" />
+                  </div>
                   <input
-                    id="placeOfBirth"
-                    v-model="formData.placeOfBirth"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    id="email"
+                    v-model="formData.email"
+                    type="email"
+                    readonly
+                    disabled
+                    class="w-full pl-10 pr-3 py-3.5 border rounded-lg bg-gray-100 cursor-not-allowed border-gray-300"
                   />
                 </div>
-              </div>
-
-              <!-- Educational Attainment and TIN -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex flex-col space-y-1">
-                  <label for="educationalAttainment" class="text-sm font-medium text-gray-700"
-                    >Educational Attainment</label
-                  >
-                  <select
-                    id="educationalAttainment"
-                    v-model="formData.educationalAttainment"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="">Select Education Level</option>
-                    <option value="Elementary">Elementary</option>
-                    <option value="High School">High School</option>
-                    <option value="College Graduate">College Graduate</option>
-                    <option value="Post Graduate">Post Graduate</option>
-                  </select>
+                <label
+                  for="email"
+                  class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                >
+                  Email <span class="text-red">*</span>
+                </label>
+                <div v-if="errors.email" class="flex items-center gap-2 mt-1 text-red">
+                  <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                  <p class="text-xs">{{ errors.email }}</p>
                 </div>
-                <div class="flex flex-col space-y-1">
-                  <label for="tin" class="text-sm font-medium text-gray-700">TIN</label>
+              </div>
+            </div>
+
+            <!-- Step 2: Contact Information -->
+            <div v-if="currentStep === 2" class="space-y-6">
+              <h2 class="text-xl font-bold text-dark-blue flex items-center">
+                <font-awesome-icon :icon="['fas', 'address-book']" class="mr-3 text-blue-500" />
+                Contact Information
+              </h2>
+              <p class="text-gray-600 mb-8">How can we reach you?</p>
+
+              <!-- Telephone Number -->
+              <div class="relative group mb-8">
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <font-awesome-icon
+                      :icon="['fas', 'phone']"
+                      class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                    />
+                  </div>
                   <input
-                    id="tin"
-                    v-model="formData.tin"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    id="telephoneNumber"
+                    v-model="formData.telephoneNumber"
+                    type="tel"
+                    class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                    placeholder=" "
                   />
-                </div>
-              </div>
-            </div>
-
-            <!-- Medical Information -->
-            <div class="space-y-4 mt-8">
-              <h3 class="text-lg font-semibold text-dark-blue">Medical Information</h3>
-
-              <!-- Gender and Blood Type -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex flex-col space-y-1">
-                  <label for="gender" class="text-sm font-medium text-gray-700">Gender</label>
-                  <select
-                    id="gender"
-                    v-model="formData.gender"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  <label
+                    for="telephoneNumber"
+                    class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
                   >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    (02) XXXX-XXXX
+                  </label>
                 </div>
-                <div class="flex flex-col space-y-1">
-                  <label for="bloodType" class="text-sm font-medium text-gray-700"
-                    >Blood Type</label
-                  >
-                  <select
-                    id="bloodType"
-                    v-model="formData.bloodType"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="">Select Blood Type</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Height and Weight -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex flex-col space-y-1">
-                  <label for="height" class="text-sm font-medium text-gray-700">Height (cm)</label>
-                  <input
-                    id="height"
-                    v-model="formData.height"
-                    type="number"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div class="flex flex-col space-y-1">
-                  <label for="weight" class="text-sm font-medium text-gray-700">Weight (kg)</label>
-                  <input
-                    id="weight"
-                    v-model="formData.weight"
-                    type="number"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-              </div>
-
-              <!-- Organ Donor -->
-              <div class="flex items-center space-x-2 mt-4">
-                <input
-                  id="organDonor"
-                  v-model="formData.organDonor"
-                  type="checkbox"
-                  class="w-4 h-4 accent-blue-500"
-                />
-                <label for="organDonor" class="text-sm font-medium text-gray-700"
-                  >I want to be an organ donor</label
+                <label
+                  for="telephoneNumber"
+                  class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
                 >
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 4: People Information -->
-          <div v-if="currentStep === 4" class="space-y-6">
-            <h2 class="text-xl font-bold text-dark-blue">People Information</h2>
-            <p class="text-gray-600">Information about people related to you</p>
-
-            <div class="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">
-              <p class="text-sm text-blue-800">
-                These details are optional but helpful for verification purposes.
-              </p>
-            </div>
-
-            <!-- Emergency Contact -->
-            <div class="space-y-4">
-              <h3 class="text-lg font-semibold text-dark-blue">Emergency Contact</h3>
-
-              <div class="flex flex-col space-y-1">
-                <label for="emergencyContactName" class="text-sm font-medium text-gray-700"
-                  >Name</label
-                >
-                <input
-                  id="emergencyContactName"
-                  v-model="formData.emergencyContactName"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div class="flex flex-col space-y-1">
-                <label for="emergencyContactNumber" class="text-sm font-medium text-gray-700"
-                  >Contact Number</label
-                >
-                <input
-                  id="emergencyContactNumber"
-                  v-model="formData.emergencyContactNumber"
-                  type="tel"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div class="flex flex-col space-y-1">
-                <label for="emergencyContactAddress" class="text-sm font-medium text-gray-700"
-                  >Address</label
-                >
-                <input
-                  id="emergencyContactAddress"
-                  v-model="formData.emergencyContactAddress"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Employer Information -->
-            <div class="space-y-4 mt-8">
-              <h3 class="text-lg font-semibold text-dark-blue">Employer Information</h3>
-
-              <div class="flex flex-col space-y-1">
-                <label for="employerName" class="text-sm font-medium text-gray-700"
-                  >Employer Name</label
-                >
-                <input
-                  id="employerName"
-                  v-model="formData.employerName"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div class="flex flex-col space-y-1">
-                <label for="employerAddress" class="text-sm font-medium text-gray-700"
-                  >Employer Address</label
-                >
-                <input
-                  id="employerAddress"
-                  v-model="formData.employerAddress"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Parent Information -->
-            <div class="space-y-4 mt-8">
-              <h3 class="text-lg font-semibold text-dark-blue">Mother's Maiden Name</h3>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="flex flex-col space-y-1">
-                  <label for="motherFirstName" class="text-sm font-medium text-gray-700"
-                    >First Name</label
-                  >
-                  <input
-                    id="motherFirstName"
-                    v-model="formData.motherFirstName"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-
-                <div class="flex flex-col space-y-1">
-                  <label for="motherMiddleName" class="text-sm font-medium text-gray-700"
-                    >Middle Name</label
-                  >
-                  <input
-                    id="motherMiddleName"
-                    v-model="formData.motherMiddleName"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-
-                <div class="flex flex-col space-y-1">
-                  <label for="motherLastName" class="text-sm font-medium text-gray-700"
-                    >Last Name</label
-                  >
-                  <input
-                    id="motherLastName"
-                    v-model="formData.motherLastName"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div class="space-y-4 mt-8">
-              <h3 class="text-lg font-semibold text-dark-blue">Father's Information</h3>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="flex flex-col space-y-1">
-                  <label for="fatherFirstName" class="text-sm font-medium text-gray-700"
-                    >First Name</label
-                  >
-                  <input
-                    id="fatherFirstName"
-                    v-model="formData.fatherFirstName"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-
-                <div class="flex flex-col space-y-1">
-                  <label for="fatherMiddleName" class="text-sm font-medium text-gray-700"
-                    >Middle Name</label
-                  >
-                  <input
-                    id="fatherMiddleName"
-                    v-model="formData.fatherMiddleName"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-
-                <div class="flex flex-col space-y-1">
-                  <label for="fatherLastName" class="text-sm font-medium text-gray-700"
-                    >Last Name</label
-                  >
-                  <input
-                    id="fatherLastName"
-                    v-model="formData.fatherLastName"
-                    type="text"
-                    class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 5: Address Information -->
-          <div v-if="currentStep === 5" class="space-y-6">
-            <h2 class="text-xl font-bold text-dark-blue">Address Information</h2>
-            <p class="text-gray-600">Where do you live?</p>
-
-            <div class="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">
-              <p class="text-sm text-blue-800">
-                Your address will be used for official correspondence and vehicle registration
-                documents.
-              </p>
-            </div>
-
-            <!-- House Number and Street -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="flex flex-col space-y-1">
-                <label for="houseNo" class="text-sm font-medium text-gray-700"
-                  >House/Unit Number <span class="text-red-500">*</span></label
-                >
-                <input
-                  id="houseNo"
-                  v-model="formData.houseNo"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div class="flex flex-col space-y-1 md:col-span-2">
-                <label for="street" class="text-sm font-medium text-gray-700"
-                  >Street <span class="text-red-500">*</span></label
-                >
-                <input
-                  id="street"
-                  v-model="formData.street"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Barangay, City, Province -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="flex flex-col space-y-1">
-                <label for="barangay" class="text-sm font-medium text-gray-700">Barangay</label>
-                <input
-                  id="barangay"
-                  v-model="formData.barangay"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div class="flex flex-col space-y-1">
-                <label for="city" class="text-sm font-medium text-gray-700"
-                  >City <span class="text-red-500">*</span></label
-                >
-                <input
-                  id="city"
-                  v-model="formData.city"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-
-              <div class="flex flex-col space-y-1">
-                <label for="province" class="text-sm font-medium text-gray-700"
-                  >Province <span class="text-red-500">*</span></label
-                >
-                <input
-                  id="province"
-                  v-model="formData.province"
-                  type="text"
-                  class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Zip Code -->
-            <div class="flex flex-col space-y-1 max-w-xs">
-              <label for="zipCode" class="text-sm font-medium text-gray-700">Zip Code</label>
-              <input
-                id="zipCode"
-                v-model="formData.zipCode"
-                type="text"
-                class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <!-- Terms and Conditions -->
-            <div class="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div class="flex items-center space-x-3">
-                <input
-                  id="acceptTerms"
-                  v-model="formData.acceptTerms"
-                  type="checkbox"
-                  class="w-5 h-5 accent-blue-500 cursor-pointer"
-                  :class="[errors.terms ? 'border-red-500' : '']"
-                />
-                <label for="acceptTerms" class="text-sm text-gray-700 cursor-pointer">
-                  I accept the
-                  <a href="#" class="text-blue-600 hover:underline font-medium"
-                    >Terms and Conditions</a
-                  >
-                  and
-                  <a href="#" class="text-blue-600 hover:underline font-medium">Privacy Policy</a>
+                  Telephone Number
                 </label>
               </div>
-              <div v-if="errors.terms" class="text-red-500 text-xs mt-2 ml-8">
-                {{ errors.terms }}
+
+              <!-- Mobile Number with Area Code -->
+              <div class="relative group">
+                <label for="mobileNumber" class="text-sm font-medium text-dark-blue mb-1 block">
+                  Mobile Number <span class="text-red">*</span>
+                </label>
+                <div class="flex space-x-2">
+                  <div class="relative w-28">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon :icon="['fas', 'globe']" class="h-5 w-5 text-gray" />
+                    </div>
+                    <select
+                      v-model="formData.intAreaCode"
+                      class="w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white appearance-none"
+                    >
+                      <option value="+63">+63</option>
+                      <option value="+1">+1</option>
+                      <option value="+44">+44</option>
+                      <option value="+61">+61</option>
+                    </select>
+                    <div
+                      class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'chevron-down']"
+                        class="h-4 w-4 text-gray"
+                      />
+                    </div>
+                  </div>
+                  <div class="relative flex-1">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'mobile-alt']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="mobileNumber"
+                      v-model="formData.mobileNumber"
+                      type="tel"
+                      class="peer w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      :class="[errors.mobileNumber ? 'border-red text-red' : 'border-gray-300']"
+                      placeholder=" "
+                    />
+                    <label
+                      for="mobileNumber"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      9XX XXX XXXX
+                    </label>
+                  </div>
+                </div>
+                <div v-if="errors.mobileNumber" class="flex items-center gap-2 mt-1 text-red">
+                  <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                  <p class="text-xs">{{ errors.mobileNumber }}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Form Error Message -->
-          <div
-            v-if="errors.form"
-            class="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm border-l-4 border-red-500 flex items-center"
-          >
-            <font-awesome-icon :icon="['fas', 'exclamation-circle']" class="mr-2 text-red-500" />
-            {{ errors.form }}
-          </div>
+            <!-- Step 3: Personal Information -->
+            <div v-if="currentStep === 3" class="space-y-6">
+              <h2 class="text-xl font-bold text-dark-blue flex items-center">
+                <font-awesome-icon :icon="['fas', 'id-card']" class="mr-3 text-blue-500" />
+                Personal Information
+              </h2>
+              <p class="text-gray-600 mb-8">Tell us more about yourself</p>
 
-          <!-- Navigation Buttons -->
-          <div class="flex justify-between mt-10">
-            <button
-              v-if="currentStep > 1"
-              @click="prevStep"
-              type="button"
-              class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-md flex items-center font-medium"
-            >
-              <font-awesome-icon :icon="['fas', 'arrow-left']" class="mr-2" />
-              Previous
-            </button>
-            <div v-else></div>
+              <!-- General Information -->
+              <div class="space-y-8">
+                <h3 class="text-lg font-semibold text-dark-blue flex items-center">
+                  <font-awesome-icon
+                    :icon="['fas', 'user-tag']"
+                    class="mr-2 text-blue-400 h-4 w-4"
+                  />
+                  General Information
+                </h3>
 
-            <button
-              v-if="currentStep < totalSteps"
-              @click="nextStep"
-              type="button"
-              class="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-md flex items-center font-medium"
-              :disabled="!isStepComplete"
-              :class="[!isStepComplete ? 'opacity-50 cursor-not-allowed' : '']"
+                <!-- Nationality and Civil Status -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div class="relative group">
+                    <div class="relative">
+                      <div
+                        class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                      >
+                        <font-awesome-icon
+                          :icon="['fas', 'flag']"
+                          class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                        />
+                      </div>
+                      <input
+                        id="nationality"
+                        v-model="formData.nationality"
+                        type="text"
+                        class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                        placeholder=" "
+                      />
+                      <label
+                        for="nationality"
+                        class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                      >
+                        Your nationality
+                      </label>
+                    </div>
+                    <label
+                      for="nationality"
+                      class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                    >
+                      Nationality
+                    </label>
+                  </div>
+
+                  <div class="relative group">
+                    <label for="civilStatus" class="text-sm font-medium text-dark-blue mb-1 block">
+                      Civil Status
+                    </label>
+                    <div class="relative">
+                      <div
+                        class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                      >
+                        <font-awesome-icon :icon="['fas', 'heart']" class="h-5 w-5 text-gray" />
+                      </div>
+                      <select
+                        id="civilStatus"
+                        v-model="formData.civilStatus"
+                        class="w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white appearance-none"
+                      >
+                        <option value="Single">Single</option>
+                        <option value="Married">Married</option>
+                        <option value="Divorced">Divorced</option>
+                        <option value="Widowed">Widowed</option>
+                      </select>
+                      <div
+                        class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none"
+                      >
+                        <font-awesome-icon
+                          :icon="['fas', 'chevron-down']"
+                          class="h-4 w-4 text-gray"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Date of Birth and Place of Birth -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div class="relative group">
+                    <div class="relative">
+                      <div
+                        class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                      >
+                        <font-awesome-icon
+                          :icon="['fas', 'calendar']"
+                          class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                        />
+                      </div>
+                      <input
+                        id="dateOfBirth"
+                        v-model="formData.dateOfBirth"
+                        type="date"
+                        class="w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                        :class="[errors.dateOfBirth ? 'border-red text-red' : 'border-gray-300']"
+                      />
+                    </div>
+                    <label
+                      for="dateOfBirth"
+                      class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                    >
+                      Date of Birth <span class="text-red">*</span>
+                    </label>
+                    <div v-if="errors.dateOfBirth" class="flex items-center gap-2 mt-1 text-red">
+                      <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                      <p class="text-xs">{{ errors.dateOfBirth }}</p>
+                    </div>
+                  </div>
+
+                  <div class="relative group">
+                    <div class="relative">
+                      <div
+                        class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                      >
+                        <font-awesome-icon
+                          :icon="['fas', 'map-marker-alt']"
+                          class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                        />
+                      </div>
+                      <input
+                        id="placeOfBirth"
+                        v-model="formData.placeOfBirth"
+                        type="text"
+                        class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                        placeholder=" "
+                      />
+                      <label
+                        for="placeOfBirth"
+                        class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                      >
+                        City, Country
+                      </label>
+                    </div>
+                    <label
+                      for="placeOfBirth"
+                      class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                    >
+                      Place of Birth
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Medical Information (Simplified) -->
+                <div class="mt-6">
+                  <h3 class="text-lg font-semibold text-dark-blue flex items-center mb-4">
+                    <font-awesome-icon
+                      :icon="['fas', 'heartbeat']"
+                      class="mr-2 text-blue-400 h-4 w-4"
+                    />
+                    Basic Medical Information
+                  </h3>
+
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Gender -->
+                    <div class="relative group">
+                      <label for="gender" class="text-sm font-medium text-dark-blue mb-1 block">
+                        Gender
+                      </label>
+                      <div class="relative">
+                        <div
+                          class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                        >
+                          <font-awesome-icon
+                            :icon="['fas', 'venus-mars']"
+                            class="h-5 w-5 text-gray"
+                          />
+                        </div>
+                        <select
+                          id="gender"
+                          v-model="formData.gender"
+                          class="w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white appearance-none"
+                        >
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        <div
+                          class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none"
+                        >
+                          <font-awesome-icon
+                            :icon="['fas', 'chevron-down']"
+                            class="h-4 w-4 text-gray"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Organ Donor Option with Toggle Switch -->
+                    <div class="col-span-2 flex items-center p-4 bg-gray-50 rounded-lg">
+                      <div class="flex-1">
+                        <h4 class="text-sm font-medium text-dark-blue">Organ Donor</h4>
+                        <p class="text-xs text-gray-500 mt-1">Register as an organ donor</p>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" v-model="formData.organDonor" class="sr-only peer" />
+                        <div
+                          class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-dark-blue/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"
+                        ></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4: People Information -->
+            <div v-if="currentStep === 4" class="space-y-6">
+              <h2 class="text-xl font-bold text-dark-blue flex items-center">
+                <font-awesome-icon :icon="['fas', 'users']" class="mr-3 text-blue-500" />
+                People Information
+              </h2>
+              <p class="text-gray-600 mb-8">Information about people related to you</p>
+
+              <!-- Emergency Contact -->
+              <div class="space-y-8 mb-10">
+                <h3 class="text-lg font-semibold text-dark-blue flex items-center">
+                  <font-awesome-icon
+                    :icon="['fas', 'phone-alt']"
+                    class="mr-2 text-blue-400 h-4 w-4"
+                  />
+                  Emergency Contact
+                </h3>
+
+                <div
+                  class="p-5 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-all"
+                >
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="relative group">
+                      <div class="relative">
+                        <div
+                          class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                        >
+                          <font-awesome-icon
+                            :icon="['fas', 'user']"
+                            class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                          />
+                        </div>
+                        <input
+                          id="emergencyContactName"
+                          v-model="formData.emergencyContactName"
+                          type="text"
+                          class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                          placeholder=" "
+                        />
+                        <label
+                          for="emergencyContactName"
+                          class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                        >
+                          Full name
+                        </label>
+                      </div>
+                      <label
+                        for="emergencyContactName"
+                        class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                      >
+                        Name
+                      </label>
+                    </div>
+
+                    <div class="relative group">
+                      <div class="relative">
+                        <div
+                          class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                        >
+                          <font-awesome-icon
+                            :icon="['fas', 'phone']"
+                            class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                          />
+                        </div>
+                        <input
+                          id="emergencyContactNumber"
+                          v-model="formData.emergencyContactNumber"
+                          type="tel"
+                          class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                          placeholder=" "
+                        />
+                        <label
+                          for="emergencyContactNumber"
+                          class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                        >
+                          Phone number
+                        </label>
+                      </div>
+                      <label
+                        for="emergencyContactNumber"
+                        class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                      >
+                        Contact Number
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 5: Address Information -->
+            <div v-if="currentStep === 5" class="space-y-6">
+              <h2 class="text-xl font-bold text-dark-blue flex items-center">
+                <font-awesome-icon :icon="['fas', 'map-marked-alt']" class="mr-3 text-blue-500" />
+                Address Information
+              </h2>
+              <p class="text-gray-600 mb-8">Where do you live?</p>
+
+              <!-- House Number and Street -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="relative group">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'home']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="houseNo"
+                      v-model="formData.houseNo"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      placeholder=" "
+                    />
+                    <label
+                      for="houseNo"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      123
+                    </label>
+                  </div>
+                  <label
+                    for="houseNo"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                  >
+                    House/Unit Number <span class="text-red">*</span>
+                  </label>
+                </div>
+
+                <div class="relative group md:col-span-2">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'road']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="street"
+                      v-model="formData.street"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      placeholder=" "
+                    />
+                    <label
+                      for="street"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      Main Street
+                    </label>
+                  </div>
+                  <label
+                    for="street"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                  >
+                    Street <span class="text-red">*</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- City, Province, Zip Code -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <div class="relative group">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'city']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="city"
+                      v-model="formData.city"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      placeholder=" "
+                    />
+                    <label
+                      for="city"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      City
+                    </label>
+                  </div>
+                  <label
+                    for="city"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                  >
+                    City <span class="text-red">*</span>
+                  </label>
+                </div>
+
+                <div class="relative group">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'map']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="province"
+                      v-model="formData.province"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      placeholder=" "
+                    />
+                    <label
+                      for="province"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      Province
+                    </label>
+                  </div>
+                  <label
+                    for="province"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                  >
+                    Province <span class="text-red">*</span>
+                  </label>
+                </div>
+
+                <div class="relative group">
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <font-awesome-icon
+                        :icon="['fas', 'mailbox']"
+                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
+                      />
+                    </div>
+                    <input
+                      id="zipCode"
+                      v-model="formData.zipCode"
+                      type="text"
+                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      placeholder=" "
+                    />
+                    <label
+                      for="zipCode"
+                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
+                    >
+                      123456
+                    </label>
+                  </div>
+                  <label
+                    for="zipCode"
+                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                  >
+                    Zip Code
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Error Message -->
+            <div
+              v-if="errors.form"
+              class="mt-6 p-4 bg-red/5 text-red rounded-lg text-sm border-l-4 border-red flex items-center animate-pulse"
             >
-              Next
-              <font-awesome-icon :icon="['fas', 'arrow-right']" class="ml-2" />
-            </button>
-            <button
-              v-else
-              @click="submitRegistration"
-              type="button"
-              class="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-md flex items-center font-medium"
-              :disabled="!isStepComplete"
-              :class="[!isStepComplete ? 'opacity-50 cursor-not-allowed' : '']"
-            >
-              Complete Registration
-              <font-awesome-icon :icon="['fas', 'check']" class="ml-2" />
-            </button>
-            <button
-              @click="cancelRegistration"
-              type="button"
-              class="px-8 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-md flex items-center font-medium"
-            >
-              Cancel
-            </button>
+              <font-awesome-icon :icon="['fas', 'exclamation-circle']" class="mr-2 h-5 w-5" />
+              {{ errors.form }}
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="flex justify-between mt-10">
+              <button
+                v-if="currentStep > 1"
+                @click="prevStep"
+                type="button"
+                class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all transform hover:-translate-y-0.5 hover:shadow-md flex items-center font-medium"
+              >
+                <font-awesome-icon :icon="['fas', 'arrow-left']" class="mr-2" />
+                Previous
+              </button>
+              <div v-else></div>
+
+              <div class="flex space-x-3">
+                <button
+                  @click="cancelRegistration"
+                  type="button"
+                  class="px-6 py-3 border border-red text-red rounded-lg hover:bg-red/5 transition-all transform hover:-translate-y-0.5 hover:shadow-md flex items-center font-medium"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  v-if="currentStep < totalSteps"
+                  @click="nextStep"
+                  type="button"
+                  class="px-8 py-3 bg-dark-blue text-white rounded-lg hover:bg-light-blue transition-all transform hover:-translate-y-0.5 hover:shadow-md flex items-center font-medium relative overflow-hidden group"
+                  :disabled="!isStepComplete"
+                  :class="[!isStepComplete ? 'opacity-50 cursor-not-allowed' : '']"
+                >
+                  <span
+                    class="absolute top-0 left-0 w-full h-full bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"
+                  ></span>
+                  Next
+                  <font-awesome-icon
+                    :icon="['fas', 'arrow-right']"
+                    class="ml-2 group-hover:translate-x-1 transition-transform"
+                  />
+                </button>
+                <button
+                  v-else
+                  @click="submitRegistration"
+                  type="button"
+                  class="px-8 py-3 bg-dark-blue text-white rounded-lg hover:bg-light-blue transition-all transform hover:-translate-y-0.5 hover:shadow-md flex items-center font-medium relative overflow-hidden group"
+                  :disabled="!isStepComplete || isSubmitting"
+                  :class="[!isStepComplete || isSubmitting ? 'opacity-50 cursor-not-allowed' : '']"
+                >
+                  <span
+                    class="absolute top-0 left-0 w-full h-full bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300"
+                  ></span>
+                  <span v-if="isSubmitting" class="flex items-center">
+                    <svg
+                      class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      ></circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Processing...
+                  </span>
+                  <span v-else>
+                    Complete Registration
+                    <font-awesome-icon :icon="['fas', 'check']" class="ml-2" />
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   </div>
 </template>

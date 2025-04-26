@@ -5,6 +5,7 @@ import { useUserStore } from './stores/user'
 import { useVehicleRegistrationFormStore } from './stores/vehicleRegistrationForm'
 import { useNotificationStore } from './stores/notification'
 import ToastContainer from './components/ToastContainer.vue'
+import UserRegistrationGuard from './components/navigation/UserRegistrationGuard.vue'
 
 const userStore = useUserStore()
 const registrationFormStore = useVehicleRegistrationFormStore()
@@ -43,4 +44,5 @@ onMounted(() => {
 <template>
   <RouterView />
   <ToastContainer />
+  <!-- We don't need to add the UserRegistrationGuard here since we add it specifically to the RegistrationView -->
 </template>

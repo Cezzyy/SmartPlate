@@ -54,4 +54,7 @@ export interface UserState {
   error: string | null
   isRegistering: boolean
   registrationData: Partial<User> | null
+  registrationCompleted: boolean
+  currentStep: number
+  formDirty: boolean
 }

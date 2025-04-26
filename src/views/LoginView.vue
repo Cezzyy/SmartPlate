@@ -10,7 +10,6 @@ const userStore = useUserStore()
 // Reactive variables for login form
 const email = ref('')
 const password = ref('')
-const rememberMe = ref(false)
 const showPassword = ref(false)
 
 // Reactive variables for registration form
@@ -20,7 +19,6 @@ const registerData = reactive({
   email: '',
   password: '',
   confirmPassword: '',
-  acceptTerms: false,
 })
 
 // Error handling
@@ -31,7 +29,6 @@ const errors = reactive({
   registerEmail: '',
   registerPassword: '',
   confirmPassword: '',
-  terms: '',
   registerForm: '',
 })
 
@@ -79,11 +76,6 @@ const handleRegistration = () => {
 
   if (registerData.password !== registerData.confirmPassword) {
     errors.confirmPassword = 'Passwords do not match'
-    isValid = false
-  }
-
-  if (!registerData.acceptTerms) {
-    errors.terms = 'You must accept the terms and conditions'
     isValid = false
   }
 
@@ -221,15 +213,6 @@ const validatePasswordMatch = () => {
   return true
 }
 
-const validateTerms = () => {
-  errors.terms = ''
-  if (!registerData.acceptTerms) {
-    errors.terms = 'You must accept the terms and conditions'
-    return false
-  }
-  return true
-}
-
 // Form submission handlers with validation
 const validateAndLogin = () => {
   clearErrors()
@@ -248,9 +231,8 @@ const validateAndRegister = () => {
   const isEmailValid = validateRegisterEmail()
   const isPasswordValid = validateRegisterPassword()
   const isConfirmPasswordValid = validateConfirmPassword()
-  const isTermsValid = validateTerms()
 
-  if (isEmailValid && isPasswordValid && isConfirmPasswordValid && isTermsValid) {
+  if (isEmailValid && isPasswordValid && isConfirmPasswordValid) {
     handleRegistration()
   }
 }
@@ -375,18 +357,7 @@ const handleLogin = async () => {
                 <p class="text-xs">{{ errors.password }}</p>
               </div>
             </div>
-            <div
-              class="flex justify-between items-center text-sm md:flex-row flex-col gap-3 md:gap-0"
-            >
-              <div class="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  v-model="rememberMe"
-                  class="w-4 h-4 accent-dark-blue"
-                />
-                <label for="remember" class="text-gray cursor-pointer">Remember me</label>
-              </div>
+            <div class="flex justify-end items-center text-sm">
               <a href="#" class="text-dark-blue font-semibold hover:text-red transition-colors"
                 >Forgot password?</a
               >
@@ -404,20 +375,6 @@ const handleLogin = async () => {
             >
               Log In
             </button>
-            <div class="relative flex items-center py-2">
-              <div class="flex-grow border-t border-gray-200"></div>
-              <span class="flex-shrink mx-4 text-gray text-sm">or</span>
-              <div class="flex-grow border-t border-gray-200"></div>
-            </div>
-            <div class="flex flex-col gap-3">
-              <button
-                type="button"
-                class="flex items-center justify-center gap-2 py-3 px-4 border border-gray-200 rounded-lg font-semibold text-sm transform hover:-translate-y-0.5 transition-all hover:shadow-lg active:translate-y-0"
-              >
-                <font-awesome-icon :icon="['fab', 'google']" class="w-5 h-5 text-[#4285F4]" />
-                Sign in with Google
-              </button>
-            </div>
           </form>
 
           <!-- Mobile-only registration button -->
@@ -544,31 +501,6 @@ const handleLogin = async () => {
               </div>
             </div>
 
-            <!-- Terms and Conditions -->
-            <div class="flex items-start gap-2">
-              <input
-                type="checkbox"
-                id="terms"
-                v-model="registerData.acceptTerms"
-                @change="validateTerms"
-                class="mt-1 w-4 h-4 accent-dark-blue"
-                required
-              />
-              <label for="terms" class="text-sm text-gray"
-                >I agree to the
-                <a href="#" class="text-dark-blue font-semibold hover:text-red transition-colors"
-                  >Terms and Conditions</a
-                >
-                and
-                <a href="#" class="text-dark-blue font-semibold hover:text-red transition-colors"
-                  >Privacy Policy</a
-                ></label
-              >
-            </div>
-            <div v-if="errors.terms" class="flex items-center gap-2 mt-1 text-red">
-              <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
-              <p class="text-xs">{{ errors.terms }}</p>
-            </div>
             <div
               v-if="errors.registerForm"
               class="flex items-center justify-center gap-2 mt-1 text-red bg-red/5 p-3 rounded-lg"

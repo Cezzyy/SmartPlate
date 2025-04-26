@@ -126,6 +126,9 @@ export const useUserStore = defineStore('user', {
     error: null,
     isRegistering: false,
     registrationData: null,
+    registrationCompleted: false,
+    currentStep: 1,
+    formDirty: false,
   }),
 
   getters: {
@@ -239,12 +242,26 @@ export const useUserStore = defineStore('user', {
     startRegistration(initialData?: Partial<User>): void {
       this.isRegistering = true
       this.registrationData = initialData || {}
+      this.registrationCompleted = false
+      this.currentStep = 1
+      this.formDirty = false
     },
 
     cancelRegistration(): void {
       this.isRegistering = false
       this.registrationData = null
-      router.push('/login')
+      this.registrationCompleted = false
+      this.currentStep = 1
+      this.formDirty = false
+    },
+
+    setFormDirty(isDirty: boolean): void {
+      this.formDirty = isDirty
+    },
+
+    updateCurrentStep(step: number): void {
+      this.currentStep = step
+      this.formDirty = true
     },
 
     async register(userData: Partial<User>): Promise<User> {
@@ -277,9 +294,11 @@ export const useUserStore = defineStore('user', {
         this.token = fakeToken
         localStorage.setItem('token', fakeToken)
 
-        // Clear registration state
+        // Clear registration state and set completion flag
         this.isRegistering = false
         this.registrationData = null
+        this.registrationCompleted = true
+        this.formDirty = false
 
         this.loading = false
         return this.currentUser
