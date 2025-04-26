@@ -7,6 +7,7 @@ import (
 	"os"
 	"smartplate-api/internal/database"
 	"smartplate-api/internal/handlers"
+	"smartplate-api/internal/plate"
 	"smartplate-api/internal/repository"
 	"smartplate-api/internal/ws"
 
@@ -110,6 +111,23 @@ func main() {
 	g.PUT("/:id", rh.UpdateForm)//working
 	g.DELETE("/:id", rh.DeleteForm)//working
 	g.GET("/:id/full", rh.GetFull)
+	
+	e.GET("/api/generate-plate/:vehicle_type", func(c echo.Context) error {
+		vt := c.Param("vehicle_type")
+		if vt == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "vehicleType is required"})
+		}
+		pt := c.QueryParam("plateType")
+		if pt == "" {
+			pt = "Private"
+	}
+		reg := c.QueryParam("region")
+		if reg == "" {
+			reg = "NCR"
+	}
+		plate := plate.GeneratePlateNumber(vt, pt, reg)
+		return c.JSON(http.StatusOK, map[string]string{"plate": plate})
+	})
 
 	// inspection
 	g.POST("/:id/inspection", rh.CreateInspection)//working
