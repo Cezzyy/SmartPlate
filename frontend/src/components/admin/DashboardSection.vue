@@ -228,9 +228,9 @@ const registrationGrowth = computed(() =>
 const revenueGrowth = computed(() =>
   getPercentageChange(totalRevenue.value, previousPeriodStats.revenue),
 )
-const inspectionGrowth = computed(() =>
-  getPercentageChange(totalInspections.value, previousPeriodStats.inspections),
-)
+// const inspectionGrowth = computed(() =>
+//   getPercentageChange(totalInspections.value, previousPeriodStats.inspections),
+// )
 </script>
 
 <template>

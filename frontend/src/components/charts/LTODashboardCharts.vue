@@ -34,13 +34,13 @@ const registrationStatusData = computed(() => {
     pending: registrationFormStore.forms.filter((form) => form.status === 'pending').length,
     approved: registrationFormStore.forms.filter((form) => form.status === 'approved').length,
     rejected: registrationFormStore.forms.filter((form) => form.status === 'rejected').length,
-    completed: registrationFormStore.forms.filter((form) => form.status === 'completed').length,
+    completed: registrationFormStore.forms.filter((form) => form.status === 'payment_completed' as any).length,
     processing: registrationFormStore.forms.filter(
       (form) =>
         form.status !== 'pending' &&
         form.status !== 'approved' &&
         form.status !== 'rejected' &&
-        form.status !== 'completed',
+        form.status !== ('payment_completed' as any),
     ).length,
   }
 

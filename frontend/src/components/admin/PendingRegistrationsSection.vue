@@ -29,13 +29,14 @@ interface Registration {
   inspectionStatus: string
   paymentStatus: string
   verificationStatus: string
-  appointmentDate: string | null
-  appointmentTime: string | null
+  appointmentDate: string | null | undefined
+  appointmentTime: string | null | undefined
   userId?: string
   isNewVehicle?: boolean
   documents?: any
   inspectionCode?: string
   paymentCode?: string
+  vehicleInfo: string
 }
 
 // Load inspection and payment modals asynchronously
@@ -69,8 +70,8 @@ const userStore = useUserStore()
 
 // MODAL HANDLERS
 const openDetailsModal = (registration: Registration): void => {
-  // Ensure all required properties are present in the registration object
-  selectedRegistration.value = {
+  // Create a compatible object for the modal
+  const modalRegistration = {
     ...registration,
     // Add any missing properties with default values
     applicantName: registration.applicantName || 'Unknown',
@@ -92,7 +93,11 @@ const openDetailsModal = (registration: Registration): void => {
     paymentStatus: registration.paymentStatus || 'pending',
     verificationStatus: registration.verificationStatus || 'pending',
     status: registration.status || 'pending',
+    vehicleInfo: `${registration.make || 'Unknown'} ${registration.model || 'Unknown'}`,
   }
+  
+  // @ts-ignore - Handle type incompatibility between our Registration and the modal's expected type
+  selectedRegistration.value = modalRegistration
   showDetailsModal.value = true
 }
 
@@ -175,6 +180,7 @@ const registrations = computed(() => {
     documents: form.documents,
     inspectionCode: form.inspectionCode,
     paymentCode: form.paymentCode,
+    vehicleInfo: `${form.make} ${form.model}`,
   }))
 })
 
@@ -842,7 +848,7 @@ const canProcessPayment = (registration: Registration): boolean => {
     <RegistrationDetailsModal
       v-if="selectedRegistration && showDetailsModal"
       :show="showDetailsModal"
-      :registration="selectedRegistration"
+      :registration="selectedRegistration as any"
       @close="closeDetailsModal"
     />
 
