@@ -2,8 +2,11 @@
 import type { VehicleRegistrationForm } from '@/types/vehicleRegistration'
 import { ref, defineProps, defineEmits, watch } from 'vue'
 import { useNotificationStore } from '@/stores/notification'
+import { usePlateStore } from '@/stores/plate'
 
 const notificationStore = useNotificationStore()
+const plateStore = usePlateStore()
+
 const props = defineProps<{
   isOpen: boolean
   registration: VehicleRegistrationForm | null
@@ -34,25 +37,8 @@ const selectedRegion = ref('NCR') // Default region
 const lastRegenerationRegion = ref('') // Track the last region used for regeneration
 const regenerationError = ref('') // Error message for regeneration
 
-// List of regions for Philippines
-const regions = [
-  { code: 'NCR', name: 'National Capital Region' },
-  { code: 'CALABARZON', name: 'CALABARZON (Region 4A)' },
-  { code: 'CENTRAL_LUZON', name: 'Central Luzon (Region 3)' },
-  { code: 'WESTERN_VISAYAS', name: 'Western Visayas (Region 6)' },
-  { code: 'CENTRAL_VISAYAS', name: 'Central Visayas (Region 7)' },
-  { code: 'EASTERN_VISAYAS', name: 'Eastern Visayas (Region 8)' },
-  { code: 'NORTHERN_MINDANAO', name: 'Northern Mindanao (Region 10)' },
-  { code: 'SOUTHERN_MINDANAO', name: 'Davao Region (Region 11)' },
-  { code: 'CAR', name: 'Cordillera Administrative Region' },
-  { code: 'CARAGA', name: 'CARAGA (Region 13)' },
-  { code: 'BICOL', name: 'Bicol Region (Region 5)' },
-  { code: 'ILOCOS', name: 'Ilocos Region (Region 1)' },
-  { code: 'MIMAROPA', name: 'MIMAROPA (Region 4B)' },
-  { code: 'SOCCSKSARGEN', name: 'SOCCSKSARGEN (Region 12)' },
-  { code: 'ZAMBOANGA', name: 'Zamboanga Peninsula (Region 9)' },
-  { code: 'BARMM', name: 'Bangsamoro Autonomous Region in Muslim Mindanao' },
-]
+// Get regions list from the store
+const regions = plateStore.getRegions
 
 // Calculate issue date (today) and expiration date (3 years from today)
 const today = new Date()
@@ -65,26 +51,9 @@ const plateExpirationDate = ref(defaultExpirationDate.toISOString().split('T')[0
 // Validation errors
 const validationErrors = ref<Record<string, string>>({})
 
-// Plate types based on vehicle type
+// Get plate types based on vehicle type using the store
 const getPlateTypes = (vehicleType: string): string[] => {
-  const commonTypes = ['Private', 'For Hire', 'Government', 'Diplomatic']
-
-  if (vehicleType === '2-Wheel') {
-    return ['Motorcycle', 'Tricycle']
-  } else if (vehicleType === 'Electric') {
-    return [...commonTypes, 'Electric']
-  } else if (vehicleType === 'Hybrid') {
-    return [...commonTypes, 'Hybrid']
-  } else if (vehicleType === 'Trailer') {
-    return [...commonTypes, 'Trailer']
-  } else if (
-    vehicleType.toLowerCase().includes('vintage') ||
-    parseInt(props.registration?.year || '0') < 1980
-  ) {
-    return [...commonTypes, 'Vintage']
-  } else {
-    return [...commonTypes, 'Electric', 'Hybrid', 'Trailer', 'Vintage']
-  }
+  return plateStore.getPlateTypesByVehicle(vehicleType, props.registration?.year)
 }
 
 // Generate a plate number based on selected parameters
@@ -100,21 +69,21 @@ const regeneratePlateNumber = () => {
     return
   }
 
-  // Call the parent component's regenerate function
-  const newPlateNumber = emit(
-    'regenerate',
+  // Generate new plate number from the store
+  const newPlateNumber = plateStore.generatePlateNumber(
     props.registration.vehicleType,
     plateType.value,
     selectedRegion.value,
   )
 
+  // Update plate number
+  plateNumber.value = newPlateNumber
+
   // Record the region used for this regeneration
   lastRegenerationRegion.value = selectedRegion.value
 
-  // In case the parent doesn't return a value, use the suggested plate
-  if (!newPlateNumber) {
-    plateNumber.value = props.suggestedPlateNumber
-  }
+  // Also emit the regenerate event to inform parent component
+  emit('regenerate', props.registration.vehicleType, plateType.value, selectedRegion.value)
 }
 
 // Watch for region changes to clear error message
@@ -163,11 +132,7 @@ watch(
 
 // Helper function to set default plate type based on vehicle type
 const setDefaultPlateType = (vehicleType: string) => {
-  if (vehicleType === '2-Wheel') {
-    plateType.value = 'Motorcycle'
-  } else {
-    plateType.value = 'Private'
-  }
+  plateType.value = plateStore.getDefaultPlateType(vehicleType)
 }
 
 // Reset form to default values
@@ -179,70 +144,21 @@ const resetForm = () => {
   validationErrors.value = {}
 }
 
-// Validate form
+// Validate form using the plate store validation
 const validateForm = (): boolean => {
-  validationErrors.value = {}
-  let isValid = true
+  if (!props.registration) return false
 
-  // Validate plate number - the format depends on the selected plate type
-  if (!plateNumber.value) {
-    validationErrors.value.plateNumber = 'Plate number is required'
-    isValid = false
-  } else if (props.registration?.vehicleType === '2-Wheel') {
-    // Motorcycle format validation
-    // Format can be X-NNN or XX-NNNNN
-    if (!/^[A-Z]-\d{3}$|^[A-Z]{2}-\d{5}$/.test(plateNumber.value)) {
-      validationErrors.value.plateNumber =
-        'Motorcycle plate numbers must follow the format: X-NNN or XX-NNNNN'
-      isValid = false
-    }
-  } else if (plateType.value === 'Diplomatic') {
-    // Diplomatic format: DDD-NNNN
-    if (!/^[A-Z]{3}-\d{4}$/.test(plateNumber.value)) {
-      validationErrors.value.plateNumber = 'Diplomatic plates must follow the format DDD-NNNN'
-      isValid = false
-    }
-  } else {
-    // Standard format: LLL NNNN (3 letters followed by 4 digits)
-    if (!/^[A-Z]{3}\s\d{4}$/.test(plateNumber.value)) {
-      validationErrors.value.plateNumber = 'Plate numbers must follow the format LLL NNNN'
-      isValid = false
-    }
+  const plateData = {
+    plateNumber: plateNumber.value,
+    plateType: plateType.value,
+    region: selectedRegion.value,
+    plateIssueDate: plateIssueDate.value,
+    plateExpirationDate: plateExpirationDate.value,
   }
 
-  // Validate plate type
-  if (!plateType.value) {
-    validationErrors.value.plateType = 'Plate type is required'
-    isValid = false
-  }
-
-  // Validate selected region
-  if (!selectedRegion.value) {
-    validationErrors.value.region = 'Region is required'
-    isValid = false
-  }
-
-  // Validate issue date
-  if (!plateIssueDate.value) {
-    validationErrors.value.plateIssueDate = 'Issue date is required'
-    isValid = false
-  }
-
-  // Validate expiration date
-  if (!plateExpirationDate.value) {
-    validationErrors.value.plateExpirationDate = 'Expiration date is required'
-    isValid = false
-  } else {
-    const issueDate = new Date(plateIssueDate.value)
-    const expirationDate = new Date(plateExpirationDate.value)
-
-    if (expirationDate <= issueDate) {
-      validationErrors.value.plateExpirationDate = 'Expiration date must be after issue date'
-      isValid = false
-    }
-  }
-
-  return isValid
+  const validation = plateStore.validatePlate(plateData, props.registration.vehicleType)
+  validationErrors.value = validation.errors as Record<string, string>
+  return validation.isValid
 }
 
 // Submit plate issuance
@@ -279,74 +195,82 @@ const cancelPlateIssuance = () => {
 <template>
   <div
     v-if="isOpen"
-    class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50"
+    class="fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50"
   >
     <div
-      class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white max-h-screen overflow-y-auto"
+      class="relative mx-auto p-0 w-full max-w-2xl shadow-xl rounded-xl bg-white max-h-[90vh] overflow-y-auto"
     >
-      <div class="mt-3">
-        <div class="flex justify-between items-center pb-3 border-b">
-          <h3 class="text-lg font-medium text-gray-900">Plate Issuance - {{ registration?.id }}</h3>
-          <button @click="cancelPlateIssuance" class="text-gray-400 hover:text-gray-500">
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
-          </button>
-        </div>
+      <!-- Header -->
+      <div class="bg-dark-blue text-white px-6 py-4 rounded-t-xl flex justify-between items-center">
+        <h3 class="text-xl font-bold">Plate Issuance - {{ registration?.id }}</h3>
+        <button
+          @click="cancelPlateIssuance"
+          class="text-white hover:text-gray-200 transition-colors"
+        >
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+      </div>
 
-        <div v-if="registration" class="mt-4">
+      <div class="p-6">
+        <div v-if="registration">
           <!-- Vehicle Information Section -->
-          <div class="bg-gray-50 p-4 rounded-lg mb-4">
-            <h4 class="text-md font-medium text-gray-700 mb-2">Vehicle Information</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-gray-50 p-5 rounded-xl mb-6 shadow-sm">
+            <h4 class="text-lg font-bold text-dark-blue mb-3">Vehicle Information</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <p class="text-sm font-medium text-gray-500">Vehicle</p>
-                <p class="text-sm">
+                <p class="text-base font-medium text-dark-blue">
                   {{ registration.make }} {{ registration.model }} ({{ registration.year }})
                 </p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Type</p>
-                <p class="text-sm">{{ registration.vehicleType }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.vehicleType }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Engine Number</p>
-                <p class="text-sm">{{ registration.engineNumber }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.engineNumber }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Chassis Number</p>
-                <p class="text-sm">{{ registration.chassisNumber }}</p>
+                <p class="text-base font-medium text-dark-blue">{{ registration.chassisNumber }}</p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Owner</p>
-                <p class="text-sm">{{ registration.applicantName || 'Not specified' }}</p>
+                <p class="text-base font-medium text-dark-blue">
+                  {{ registration.applicantName || 'Not specified' }}
+                </p>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-500">Registration Type</p>
-                <p class="text-sm">{{ registration.registrationType }}</p>
+                <p class="text-base font-medium text-dark-blue">
+                  {{ registration.registrationType }}
+                </p>
               </div>
             </div>
           </div>
 
           <!-- Plate Issuance Section -->
-          <div class="mt-4">
-            <h4 class="text-md font-medium text-gray-700 mb-3">Plate Assignment</h4>
+          <div class="mb-6">
+            <h4 class="text-lg font-bold text-dark-blue mb-4">Plate Assignment</h4>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Region <span class="text-red-600">*</span>
                 </label>
                 <select
                   v-model="selectedRegion"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.region,
+                    'border-red-500 bg-red-50': validationErrors.region,
                     'border-gray-300': !validationErrors.region,
                   }"
                 >
@@ -354,20 +278,20 @@ const cancelPlateIssuance = () => {
                     {{ region.name }}
                   </option>
                 </select>
-                <p v-if="validationErrors.region" class="mt-1 text-sm text-red-600">
+                <p v-if="validationErrors.region" class="mt-1 text-sm text-red-600 font-medium">
                   {{ validationErrors.region }}
                 </p>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Plate Type <span class="text-red-600">*</span>
                 </label>
                 <select
                   v-model="plateType"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.plateType,
+                    'border-red-500 bg-red-50': validationErrors.plateType,
                     'border-gray-300': !validationErrors.plateType,
                   }"
                 >
@@ -380,57 +304,62 @@ const cancelPlateIssuance = () => {
                     {{ type }}
                   </option>
                 </select>
-                <p v-if="validationErrors.plateType" class="mt-1 text-sm text-red-600">
+                <p v-if="validationErrors.plateType" class="mt-1 text-sm text-red-600 font-medium">
                   {{ validationErrors.plateType }}
                 </p>
               </div>
 
-              <div class="mb-3 col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4 col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Plate Number <span class="text-red-600">*</span>
                 </label>
-                <div class="flex space-x-2">
+                <div class="flex flex-col sm:flex-row gap-3">
                   <div class="relative flex-grow">
                     <input
                       v-model="plateNumber"
                       type="text"
-                      class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-mono"
+                      class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base font-mono tracking-wide transition-colors"
                       :class="{
-                        'border-red-500': validationErrors.plateNumber,
+                        'border-red-500 bg-red-50': validationErrors.plateNumber,
                         'border-gray-300': !validationErrors.plateNumber,
                       }"
                     />
                   </div>
-                  <button
-                    @click="plateNumber = suggestedPlateNumber"
-                    type="button"
-                    class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded shadow-sm text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    @click="regeneratePlateNumber"
-                    type="button"
-                    class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded shadow-sm"
-                    :class="{
-                      'text-gray-700 bg-white hover:bg-gray-50':
-                        lastRegenerationRegion !== selectedRegion,
-                      'opacity-50 cursor-not-allowed text-gray-500 bg-gray-100':
-                        lastRegenerationRegion === selectedRegion,
-                    }"
-                    :title="
-                      lastRegenerationRegion === selectedRegion
-                        ? 'Change region to generate a new plate'
-                        : 'Generate new plate with selected region'
-                    "
-                  >
-                    Regenerate
-                  </button>
+                  <div class="flex gap-2">
+                    <button
+                      @click="plateNumber = suggestedPlateNumber"
+                      type="button"
+                      class="px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      @click="regeneratePlateNumber"
+                      type="button"
+                      class="px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm transition-colors"
+                      :class="{
+                        'text-gray-700 bg-white hover:bg-gray-50 focus:ring-light-blue':
+                          lastRegenerationRegion !== selectedRegion,
+                        'opacity-50 cursor-not-allowed text-gray-500 bg-gray-100':
+                          lastRegenerationRegion === selectedRegion,
+                      }"
+                      :title="
+                        lastRegenerationRegion === selectedRegion
+                          ? 'Change region to generate a new plate'
+                          : 'Generate new plate with selected region'
+                      "
+                    >
+                      Regenerate
+                    </button>
+                  </div>
                 </div>
-                <p v-if="validationErrors.plateNumber" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.plateNumber"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.plateNumber }}
                 </p>
-                <p v-if="regenerationError" class="mt-1 text-sm text-amber-600">
+                <p v-if="regenerationError" class="mt-1 text-sm text-amber-600 font-medium">
                   {{ regenerationError }}
                 </p>
                 <p class="mt-1 text-xs text-gray-500">
@@ -444,66 +373,72 @@ const cancelPlateIssuance = () => {
                 </p>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Issue Date <span class="text-red-600">*</span>
                 </label>
                 <input
                   v-model="plateIssueDate"
                   type="date"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.plateIssueDate,
+                    'border-red-500 bg-red-50': validationErrors.plateIssueDate,
                     'border-gray-300': !validationErrors.plateIssueDate,
                   }"
                 />
-                <p v-if="validationErrors.plateIssueDate" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.plateIssueDate"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.plateIssueDate }}
                 </p>
               </div>
 
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
                   Expiration Date <span class="text-red-600">*</span>
                 </label>
                 <input
                   v-model="plateExpirationDate"
                   type="date"
-                  class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                   :class="{
-                    'border-red-500': validationErrors.plateExpirationDate,
+                    'border-red-500 bg-red-50': validationErrors.plateExpirationDate,
                     'border-gray-300': !validationErrors.plateExpirationDate,
                   }"
                 />
-                <p v-if="validationErrors.plateExpirationDate" class="mt-1 text-sm text-red-600">
+                <p
+                  v-if="validationErrors.plateExpirationDate"
+                  class="mt-1 text-sm text-red-600 font-medium"
+                >
                   {{ validationErrors.plateExpirationDate }}
                 </p>
               </div>
             </div>
 
             <!-- Issuance Notes -->
-            <div class="mt-4">
-              <h4 class="text-md font-medium text-gray-700 mb-2">Issuance Notes</h4>
+            <div class="mt-5 bg-gray-50 p-5 rounded-xl">
+              <h4 class="text-md font-bold text-dark-blue mb-3">Issuance Notes</h4>
               <textarea
                 v-model="issuanceNotes"
                 rows="3"
-                class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300"
+                class="w-full px-4 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors border-gray-300"
                 placeholder="Enter any notes regarding this plate issuance..."
               ></textarea>
             </div>
           </div>
         </div>
 
-        <div class="flex justify-end space-x-3 mt-6 pt-3 border-t">
+        <div class="flex justify-end space-x-4 mt-6 pt-4 border-t">
           <button
             @click="cancelPlateIssuance"
-            class="px-4 py-2 bg-white border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="px-5 py-2.5 bg-gray-100 border border-gray-300 rounded-lg shadow-sm text-base font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-colors"
           >
             Cancel
           </button>
           <button
             @click="submitIssuance"
-            class="px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="px-5 py-2.5 bg-dark-blue border border-transparent rounded-lg shadow-sm text-base font-medium text-white hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
           >
             Issue Plate
           </button>

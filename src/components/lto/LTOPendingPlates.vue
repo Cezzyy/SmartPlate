@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted } from 'vue'
 import type { VehicleRegistrationForm } from '@/types/vehicleRegistration'
-import type { Plate } from '@/types/vehicle'
 import { useVehicleRegistrationFormStore } from '@/stores/vehicleRegistrationForm'
+import { useUserStore } from '@/stores/user'
+import { usePlateStore } from '@/stores/plate'
 
 // Lazy load the PlateIssuanceModal component
 const PlateIssuanceModal = defineAsyncComponent(
@@ -10,6 +11,13 @@ const PlateIssuanceModal = defineAsyncComponent(
 )
 
 const vehicleRegistrationFormStore = useVehicleRegistrationFormStore()
+const userStore = useUserStore()
+const plateStore = usePlateStore()
+
+// Load plates from localStorage on component mount
+onMounted(() => {
+  plateStore.loadPlatesFromStorage()
+})
 
 // Reactive variables
 const sortBy = ref('registrationdate')
@@ -19,6 +27,16 @@ const showPlateModal = ref(false)
 const suggestedPlateNumber = ref('')
 const lastSelectedRegion = ref('NCR') // Track the last region selected
 const lastSelectedPlateType = ref('') // Track the last plate type selected
+const searchQuery = ref('')
+
+// Function to get owner name from user ID
+const getOwnerName = (userId: string): string => {
+  const user = userStore.users.find((user) => user.ltoClientId === userId)
+  if (user) {
+    return `${user.firstName} ${user.lastName}`
+  }
+  return 'Unknown'
+}
 
 // Toggle sort order
 const toggleSort = (field: string) => {
@@ -37,9 +55,22 @@ const pendingPlateIssuance = computed(() => {
   )
 })
 
+// Filtered registrations
+const filteredPendingPlateIssuance = computed(() => {
+  if (!searchQuery.value) return pendingPlateIssuance.value
+
+  const query = searchQuery.value.toLowerCase()
+  return pendingPlateIssuance.value.filter(
+    (reg) =>
+      reg.id.toLowerCase().includes(query) ||
+      `${reg.make} ${reg.model}`.toLowerCase().includes(query) ||
+      getOwnerName(reg.userId).toLowerCase().includes(query),
+  )
+})
+
 // Sort registrations based on current sort settings
 const sortedPendingPlateIssuance = computed(() => {
-  return [...pendingPlateIssuance.value].sort((a, b) => {
+  return [...filteredPendingPlateIssuance.value].sort((a, b) => {
     let valA: string | number, valB: string | number
 
     switch (sortBy.value) {
@@ -52,8 +83,8 @@ const sortedPendingPlateIssuance = computed(() => {
         valB = `${b.make} ${b.model}`
         break
       case 'owner':
-        valA = a.applicantName || ''
-        valB = b.applicantName || ''
+        valA = getOwnerName(a.userId)
+        valB = getOwnerName(b.userId)
         break
       case 'registrationdate':
       default:
@@ -74,121 +105,6 @@ const sortedPendingPlateIssuance = computed(() => {
   })
 })
 
-// Generate a random plate number
-const generatePlateNumber = (
-  vehicleType: string,
-  plateType = 'Private',
-  region = 'NCR',
-): string => {
-  // Region prefixes mapping
-  const regionPrefixes: Record<string, string> = {
-    NCR: 'A',
-    CALABARZON: 'B',
-    CENTRAL_LUZON: 'C',
-    WESTERN_VISAYAS: 'D',
-    CENTRAL_VISAYAS: 'E',
-    EASTERN_VISAYAS: 'F',
-    NORTHERN_MINDANAO: 'G',
-    SOUTHERN_MINDANAO: 'H',
-    CAR: 'J',
-    CARAGA: 'K',
-    BICOL: 'L',
-    ILOCOS: 'M',
-    MIMAROPA: 'N',
-    SOCCSKSARGEN: 'P',
-    ZAMBOANGA: 'R',
-    BARMM: 'S',
-  }
-
-  const regionPrefix = regionPrefixes[region] || 'A' // Default to NCR if region not found
-
-  // Letters pool (excluding I, O, Q for readability)
-  const lettersPool = 'ABCDEFGHJKLMNPRSTUVWXYZ'
-
-  // Special case for motorcycle
-  if (vehicleType === '2-Wheel') {
-    // Motorcycle format: L-NNN or LL-NNNNN
-    const sequentialNumber = Math.floor(1000 + Math.random() * 9000) // 1000-9999
-    if (Math.random() > 0.5) {
-      // L-NNN format
-      return `${regionPrefix}-${sequentialNumber.toString().substring(0, 3)}`
-    } else {
-      // LL-NNNNN format
-      const secondLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      const fiveDigitNumber = Math.floor(10000 + Math.random() * 90000) // 10000-99999
-      return `${regionPrefix}${secondLetter}-${fiveDigitNumber}`
-    }
-  }
-
-  // Handle different plate types for 4-wheeled vehicles
-  let secondLetter = ''
-  let thirdLetter = ''
-
-  switch (plateType) {
-    case 'Diplomatic':
-      // Diplomatic format: DDD-NNNN (3-digit country code + 4-digit seq)
-      const countryCodes = ['USA', 'JPN', 'KOR', 'CHN', 'GBR', 'AUS']
-      const countryCode = countryCodes[Math.floor(Math.random() * countryCodes.length)]
-      const sequentialNumber = Math.floor(1000 + Math.random() * 9000) // 1000-9999
-      return `${countryCode}-${sequentialNumber}`
-
-    case 'Government':
-      // Government: fixed prefix S + two arbitrary letters
-      secondLetter = 'S'
-      thirdLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      break
-
-    case 'Electric':
-      // Electric: second letter A–M, third letter V/W/X/Y/Z
-      secondLetter = 'ABCDEFGHJKLM'.charAt(Math.floor(Math.random() * 12))
-      thirdLetter = 'VWXYZ'.charAt(Math.floor(Math.random() * 5))
-      break
-
-    case 'Hybrid':
-      // Hybrid: second letter N–Z, third letter V/W/X/Y/Z
-      secondLetter = 'NPRSTUVWXYZ'.charAt(Math.floor(Math.random() * 11))
-      thirdLetter = 'VWXYZ'.charAt(Math.floor(Math.random() * 5))
-      break
-
-    case 'Trailer':
-      // Trailer: second letter U, third letter any A–Z
-      secondLetter = 'U'
-      thirdLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      break
-
-    case 'Vintage':
-      // Vintage: suffix TX/TY/TZ after two arbitrary letters
-      secondLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      thirdLetter = ['TX', 'TY', 'TZ'][Math.floor(Math.random() * 3)]
-      break
-
-    case 'For Hire':
-    case 'PublicUtility':
-      // Public Utility: any A–Z but track separately
-      secondLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      thirdLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      break
-
-    case 'Private':
-    default:
-      // Private: any A–Z (except I, O, Q)
-      secondLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      thirdLetter = lettersPool.charAt(Math.floor(Math.random() * lettersPool.length))
-      break
-  }
-
-  // Generate 4-digit sequential number
-  const sequentialNumber = Math.floor(1000 + Math.random() * 9000) // 1000-9999
-
-  // Special case for Vintage type
-  if (plateType === 'Vintage') {
-    return `${regionPrefix}${secondLetter}${thirdLetter} ${sequentialNumber}`
-  }
-
-  // Standard format: LLL NNNN
-  return `${regionPrefix}${secondLetter}${thirdLetter} ${sequentialNumber}`
-}
-
 // Open the plate issuance modal
 const openPlateModal = (registration: VehicleRegistrationForm) => {
   activeRegistration.value = registration
@@ -198,10 +114,11 @@ const openPlateModal = (registration: VehicleRegistrationForm) => {
 
   // If no plate type is remembered, determine a default based on vehicle information
   if (!lastSelectedPlateType.value) {
+    const ownerName = getOwnerName(registration.userId)
     if (
-      registration.applicantName?.includes('Government') ||
-      registration.applicantName?.includes('Gov') ||
-      registration.applicantName?.includes('Department')
+      ownerName.toLowerCase().includes('government') ||
+      ownerName.toLowerCase().includes('gov') ||
+      ownerName.toLowerCase().includes('department')
     ) {
       plateTypeForGeneration = 'Government'
     } else if (registration.vehicleType === 'Electric') {
@@ -214,7 +131,8 @@ const openPlateModal = (registration: VehicleRegistrationForm) => {
   // Use the stored region or default to NCR
   const region = lastSelectedRegion.value
 
-  suggestedPlateNumber.value = generatePlateNumber(
+  // Use the plate store to generate a plate number
+  suggestedPlateNumber.value = plateStore.generatePlateNumber(
     registration.vehicleType,
     plateTypeForGeneration,
     region,
@@ -231,7 +149,8 @@ const regeneratePlate = (vehicleType: string, plateType: string, region: string)
   lastSelectedRegion.value = region
   lastSelectedPlateType.value = plateType
 
-  suggestedPlateNumber.value = generatePlateNumber(vehicleType, plateType, region)
+  // Use the plate store to generate a plate number
+  suggestedPlateNumber.value = plateStore.generatePlateNumber(vehicleType, plateType, region)
 
   return suggestedPlateNumber.value
 }
@@ -253,33 +172,8 @@ const handlePlateIssuance = (data: {
 }) => {
   if (!activeRegistration.value) return
 
-  // Extract region prefix from first letter of plate number
-  let regionCode = 'NCR'
-
-  // Determine region code from plate number (assuming the first letter is the region code)
-  if (data.plateNumber.match(/^[A-Z]/)) {
-    const firstLetter = data.plateNumber.charAt(0)
-    // Reverse mapping
-    const regionMapping: Record<string, string> = {
-      A: 'NCR',
-      B: 'CALABARZON',
-      C: 'CENTRAL_LUZON',
-      D: 'WESTERN_VISAYAS',
-      E: 'CENTRAL_VISAYAS',
-      F: 'EASTERN_VISAYAS',
-      G: 'NORTHERN_MINDANAO',
-      H: 'SOUTHERN_MINDANAO',
-      J: 'CAR',
-      K: 'CARAGA',
-      L: 'BICOL',
-      M: 'ILOCOS',
-      N: 'MIMAROPA',
-      P: 'SOCCSKSARGEN',
-      R: 'ZAMBOANGA',
-      S: 'BARMM',
-    }
-    regionCode = regionMapping[firstLetter] || 'NCR'
-  }
+  // Get region code from plate store
+  const regionCode = plateStore.getRegionFromPlate(data.plateNumber)
 
   // Update the registration with plate information
   const updatedRegistration = {
@@ -304,27 +198,22 @@ const handlePlateIssuance = (data: {
     JSON.stringify(vehicleRegistrationFormStore.forms),
   )
 
-  // Create a new plate record
-  const newPlate: Partial<Plate> = {
-    plateId: parseInt(activeRegistration.value.id.replace(/\D/g, '')), // Remove non-digits and convert to number
-    vehicleId: activeRegistration.value.vehicleId
-      ? parseInt(activeRegistration.value.vehicleId)
-      : 0,
+  // Create a new plate record using the plate store
+  const plateId = parseInt(activeRegistration.value.id.replace(/\D/g, '')) || Date.now()
+  const vehicleId = activeRegistration.value.vehicleId
+    ? parseInt(activeRegistration.value.vehicleId)
+    : 0
+
+  plateStore.issuePlate({
+    plateId,
+    vehicleId,
     plate_number: data.plateNumber,
     plate_type: data.plateType,
     plate_issue_date: data.plateIssueDate,
     plate_expiration_date: data.plateExpirationDate,
-    region: regionCode, // Add region to plate record
+    region: regionCode,
     status: 'Active',
-  }
-
-  // In a real application, you would save the plate to a database
-  console.log('New plate created:', newPlate)
-
-  // Also save plates to local storage for persistence
-  const existingPlates = JSON.parse(localStorage.getItem('vehicle_plates') || '[]')
-  existingPlates.push(newPlate)
-  localStorage.setItem('vehicle_plates', JSON.stringify(existingPlates))
+  })
 
   // Transfer the completed registration to the vehicleRegistration store
   // so it appears in the user's Vehicles and Registrations sections
@@ -336,66 +225,136 @@ const handlePlateIssuance = (data: {
 </script>
 
 <template>
-  <div class="p-6">
-    <!-- Pending Plate Issuance Table -->
-    <h1 class="text-2xl font-semibold text-gray-900 mb-6">Pending Plate Issuance</h1>
-    <div class="bg-white rounded-lg shadow overflow-hidden mb-8">
+  <div>
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <h2 class="text-2xl font-bold text-dark-blue">Pending Plate Issuance</h2>
+        <p class="text-gray mt-1">Process and issue new license plates for registered vehicles</p>
+      </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 p-6 mb-8">
+      <div class="relative">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search by ID, vehicle details, or owner..."
+          class="w-full pl-10 pr-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-transparent transition-all"
+        />
+        <font-awesome-icon
+          :icon="['fas', 'search']"
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray"
+        />
+      </div>
+    </div>
+
+    <!-- Pending Plates Table -->
+    <div
+      class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden mb-6"
+    >
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
               <th
                 v-for="header in [
-                  'Registration ID',
-                  'Vehicle Details',
-                  'Owner',
-                  'Registration Date',
+                  { text: 'Registration ID', value: 'id', sortable: true },
+                  { text: 'Vehicle Details', value: 'vehicledetails', sortable: true },
+                  { text: 'Owner', value: 'owner', sortable: true },
+                  { text: 'Registration Date', value: 'registrationdate', sortable: true },
+                  { text: 'Actions', value: 'actions', sortable: false },
                 ]"
-                :key="header"
-                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                @click="toggleSort(header.toLowerCase().replace(' ', ''))"
+                :key="header.value"
+                @click="header.sortable && toggleSort(header.value)"
+                class="px-6 py-4 text-left text-xs font-medium text-gray uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                :class="{ 'cursor-default': !header.sortable }"
               >
-                {{ header }}
-                <span v-if="sortBy === header.toLowerCase().replace(' ', '')">{{
-                  sortOrder === 'asc' ? '↑' : '↓'
-                }}</span>
-              </th>
-              <th
-                class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Actions
+                <div class="flex items-center gap-2">
+                  {{ header.text }}
+                  <span v-if="header.sortable" class="text-gray-400">
+                    <font-awesome-icon
+                      v-if="sortBy === header.value"
+                      :icon="['fas', sortOrder === 'asc' ? 'sort-up' : 'sort-down']"
+                    />
+                    <font-awesome-icon v-else :icon="['fas', 'sort']" />
+                  </span>
+                </div>
               </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="registration in sortedPendingPlateIssuance" :key="registration.id">
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {{ registration.id }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ `${registration.make} ${registration.model} (${registration.year})` }}
-                <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">{{
-                  registration.vehicleType
-                }}</span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ registration.applicantName || 'Unknown' }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ new Date(registration.submissionDate).toLocaleDateString() }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                <button
-                  @click="openPlateModal(registration)"
-                  class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Issue Plate
-                </button>
+            <!-- Empty state -->
+            <tr v-if="sortedPendingPlateIssuance.length === 0" class="hover:bg-gray-50">
+              <td colspan="5" class="px-6 py-10 text-center text-gray">
+                <div class="flex flex-col items-center justify-center space-y-3">
+                  <div class="bg-light-blue bg-opacity-10 p-4 rounded-full">
+                    <font-awesome-icon :icon="['fas', 'car']" class="text-3xl text-light-blue" />
+                  </div>
+                  <p class="text-lg font-medium text-dark-blue">No pending plate issuance</p>
+                  <p class="text-sm text-gray">
+                    All vehicles have been processed or no registrations have been completed
+                  </p>
+                </div>
               </td>
             </tr>
-            <tr v-if="sortedPendingPlateIssuance.length === 0">
-              <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
-                No vehicles pending plate issuance
+
+            <!-- Table rows -->
+            <tr
+              v-for="registration in sortedPendingPlateIssuance"
+              :key="registration.id"
+              class="hover:bg-gray-50 transition-colors"
+            >
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm font-medium text-dark-blue">{{ registration.id }}</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div
+                    class="flex-shrink-0 h-10 w-10 bg-light-blue bg-opacity-10 rounded-full flex items-center justify-center"
+                  >
+                    <font-awesome-icon :icon="['fas', 'car']" class="text-light-blue" />
+                  </div>
+                  <div class="ml-4">
+                    <div class="text-sm font-medium text-dark-blue">
+                      {{ `${registration.make} ${registration.model}` }}
+                    </div>
+                    <div class="text-sm text-gray">
+                      {{ registration.year }} ·
+                      <span
+                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                      >
+                        {{ registration.vehicleType }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-700">{{ getOwnerName(registration.userId) }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span
+                  class="px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full bg-yellow-100 text-yellow-800"
+                >
+                  <span class="h-1.5 w-1.5 rounded-full bg-yellow-600 mr-1.5 self-center"></span>
+                  {{
+                    new Date(registration.submissionDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <button
+                  @click="openPlateModal(registration)"
+                  class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-light-blue hover:bg-dark-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-all"
+                >
+                  <font-awesome-icon :icon="['fas', 'id-card']" class="mr-2" />
+                  Issue Plate
+                </button>
               </td>
             </tr>
           </tbody>
