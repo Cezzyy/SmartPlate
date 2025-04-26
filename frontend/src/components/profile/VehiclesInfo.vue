@@ -15,6 +15,10 @@ defineProps({
     type: Object,
     required: true,
   },
+  showEmptyState: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // Get vehicle registration store
@@ -90,7 +94,7 @@ const getExpiryStatusText = (expiryDateStr) => {
       <h3 class="text-lg font-medium text-gray-800">Your Vehicles</h3>
 
       <div v-if="vehicles.length === 0" class="text-center py-8 text-gray-500">
-        You don't have any registered vehicles yet.
+        <span v-if="showEmptyState">You don't have any registered vehicles yet.</span>
       </div>
 
       <!-- Vehicles Grid -->
@@ -117,20 +121,32 @@ const getExpiryStatusText = (expiryDateStr) => {
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Plate Number:</span>
               <span class="text-sm font-medium">
-                {{ vehicleStore.getPlateByVehicleId(vehicle.id)?.plate_number || 'Not assigned' }}
+                <template v-if="vehicleStore.getPlateByVehicleId(vehicle.id)?.plate_number">
+                  {{ vehicleStore.getPlateByVehicleId(vehicle.id)?.plate_number }}
+                </template>
+                <span v-else class="text-gray-400 italic">Not assigned</span>
               </span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Color:</span>
-              <span class="text-sm">{{ vehicle.color }}</span>
+              <span class="text-sm">
+                <template v-if="vehicle.color">{{ vehicle.color }}</template>
+                <span v-else-if="showEmptyState" class="text-gray-400 italic">Not specified</span>
+              </span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Last Updated:</span>
-              <span class="text-sm">{{ vehicle.lastRenewalDate }}</span>
+              <span class="text-sm">
+                <template v-if="vehicle.lastRenewalDate">{{ vehicle.lastRenewalDate }}</template>
+                <span v-else-if="showEmptyState" class="text-gray-400 italic">Not available</span>
+              </span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Expiry Date:</span>
-              <span class="text-sm">{{ vehicle.registrationExpiryDate }}</span>
+              <span class="text-sm">
+                <template v-if="vehicle.registrationExpiryDate">{{ vehicle.registrationExpiryDate }}</template>
+                <span v-else-if="showEmptyState" class="text-gray-400 italic">Not available</span>
+              </span>
             </div>
           </div>
         </div>
@@ -142,7 +158,7 @@ const getExpiryStatusText = (expiryDateStr) => {
       <h3 class="text-lg font-medium text-gray-800">Your License Plates</h3>
 
       <div v-if="plates.length === 0" class="text-center py-8 text-gray-500">
-        You don't have any registered plates yet.
+        <span v-if="showEmptyState">You don't have any registered plates yet.</span>
       </div>
 
       <!-- Plates Grid -->
@@ -154,26 +170,40 @@ const getExpiryStatusText = (expiryDateStr) => {
         >
           <div class="p-3 border-b bg-gradient-to-r from-blue-50 to-green-50">
             <div class="flex justify-between items-center">
-              <h4 class="font-medium text-gray-800">{{ plate.plate_number }}</h4>
+              <h4 class="font-medium text-gray-800">
+                <template v-if="plate.plate_number">{{ plate.plate_number }}</template>
+                <span v-else-if="showEmptyState" class="text-gray-400 italic">No plate number</span>
+              </h4>
               <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                {{ plate.status }}
+                {{ plate.status || 'Unknown' }}
               </span>
             </div>
-            <p class="text-sm text-gray-600">{{ plate.vehicleMake }} {{ plate.vehicleSeries }}</p>
+            <p class="text-sm text-gray-600">
+              <template v-if="plate.vehicleMake || plate.vehicleSeries">
+                {{ plate.vehicleMake }} {{ plate.vehicleSeries }}
+              </template>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Vehicle details not available</span>
+            </p>
           </div>
 
           <div class="p-3 space-y-2">
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Registration Date:</span>
-              <span class="text-sm">{{ plate.plate_issue_date }}</span>
+              <span class="text-sm">
+                <template v-if="plate.plate_issue_date">{{ plate.plate_issue_date }}</template>
+                <span v-else-if="showEmptyState" class="text-gray-400 italic">Not available</span>
+              </span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Expiry Date:</span>
-              <span class="text-sm">{{ plate.plate_expiration_date }}</span>
+              <span class="text-sm">
+                <template v-if="plate.plate_expiration_date">{{ plate.plate_expiration_date }}</template>
+                <span v-else-if="showEmptyState" class="text-gray-400 italic">Not available</span>
+              </span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Status:</span>
-              <span
+              <span v-if="plate.plate_expiration_date"
                 :class="[
                   'text-sm px-2 py-0.5 rounded-full text-xs',
                   getExpiryStatusColor(plate.plate_expiration_date),
@@ -181,10 +211,14 @@ const getExpiryStatusText = (expiryDateStr) => {
               >
                 {{ getExpiryStatusText(plate.plate_expiration_date) }}
               </span>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Not available</span>
             </div>
             <div class="flex justify-between">
               <span class="text-sm text-gray-500">Type:</span>
-              <span class="text-sm">{{ plate.plate_type }}</span>
+              <span class="text-sm">
+                <template v-if="plate.plate_type">{{ plate.plate_type }}</template>
+                <span v-else-if="showEmptyState" class="text-gray-400 italic">Not specified</span>
+              </span>
             </div>
           </div>
         </div>

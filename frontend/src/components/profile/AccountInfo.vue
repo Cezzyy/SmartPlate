@@ -18,6 +18,10 @@ defineProps({
     type: Object,
     default: () => ({}),
   },
+  showEmptyState: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 defineEmits(['update:formData'])
@@ -29,7 +33,8 @@ defineEmits(['update:formData'])
     <div class="flex flex-col space-y-1">
       <label class="text-sm text-gray-500">LTO Client ID</label>
       <div class="text-gray-800 font-medium">
-        {{ user.ltoClientId }}
+        <template v-if="user.ltoClientId">{{ user.ltoClientId }}</template>
+        <span v-else-if="showEmptyState" class="text-gray-400 italic">No LTO Client ID provided</span>
       </div>
       <p class="text-xs text-gray-500 italic">LTO Client ID cannot be changed</p>
     </div>
@@ -40,7 +45,8 @@ defineEmits(['update:formData'])
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Last Name <span class="text-red-500">*</span></label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.lastName }}
+          <template v-if="user.lastName">{{ user.lastName }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No last name provided</span>
         </div>
         <div v-else class="relative">
           <input
@@ -60,7 +66,8 @@ defineEmits(['update:formData'])
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">First Name <span class="text-red-500">*</span></label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.firstName }}
+          <template v-if="user.firstName">{{ user.firstName }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No first name provided</span>
         </div>
         <div v-else class="relative">
           <input
@@ -80,7 +87,8 @@ defineEmits(['update:formData'])
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Middle Name</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.middleName }}
+          <template v-if="user.middleName">{{ user.middleName }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No middle name provided</span>
         </div>
         <input
           v-else

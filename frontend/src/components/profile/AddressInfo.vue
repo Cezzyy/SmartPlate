@@ -18,13 +18,22 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  showEmptyState: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 defineEmits(['update:formData'])
 
 // Computed full address
 const fullAddress = computed(() => {
-  return `${props.user.houseNo} ${props.user.street}, ${props.user.barangay}, ${props.user.city}, ${props.user.province} ${props.user.zipCode}`
+  if (!props.user.houseNo && !props.user.street && !props.user.barangay && 
+      !props.user.city && !props.user.province && !props.user.zipCode) {
+    return props.showEmptyState ? 'No address information provided' : ''
+  }
+  
+  return `${props.user.houseNo || ''} ${props.user.street || ''}, ${props.user.barangay || ''}, ${props.user.city || ''}, ${props.user.province || ''} ${props.user.zipCode || ''}`
 })
 </script>
 
@@ -32,7 +41,8 @@ const fullAddress = computed(() => {
   <div class="space-y-4 bg-white">
     <!-- Full Address Display -->
     <div v-if="!isEditMode" class="mb-4 p-3 bg-gray-50 rounded-lg">
-      <p class="text-gray-800">{{ fullAddress }}</p>
+      <p v-if="fullAddress" class="text-gray-800">{{ fullAddress }}</p>
+      <p v-else-if="showEmptyState" class="text-gray-400 italic">No address information provided</p>
     </div>
 
     <!-- House Number and Street -->
@@ -43,7 +53,8 @@ const fullAddress = computed(() => {
           >House/Unit Number <span class="text-red-500">*</span></label
         >
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.houseNo }}
+          <template v-if="user.houseNo">{{ user.houseNo }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No house number provided</span>
         </div>
         <div v-else class="relative">
           <input
@@ -63,7 +74,8 @@ const fullAddress = computed(() => {
       <div class="flex flex-col space-y-1 md:col-span-2">
         <label class="text-sm text-gray-500">Street <span class="text-red-500">*</span></label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.street }}
+          <template v-if="user.street">{{ user.street }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No street provided</span>
         </div>
         <div v-else class="relative">
           <input
@@ -86,7 +98,8 @@ const fullAddress = computed(() => {
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Barangay <span class="text-red-500">*</span></label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.barangay }}
+          <template v-if="user.barangay">{{ user.barangay }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No barangay provided</span>
         </div>
         <div v-else class="relative">
           <input
@@ -108,7 +121,8 @@ const fullAddress = computed(() => {
           >City/Municipality <span class="text-red-500">*</span></label
         >
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.city }}
+          <template v-if="user.city">{{ user.city }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No city provided</span>
         </div>
         <div v-else class="relative">
           <input
@@ -128,7 +142,8 @@ const fullAddress = computed(() => {
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Province <span class="text-red-500">*</span></label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.province }}
+          <template v-if="user.province">{{ user.province }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No province provided</span>
         </div>
         <div v-else class="relative">
           <input
@@ -149,7 +164,8 @@ const fullAddress = computed(() => {
     <div class="flex flex-col space-y-1 max-w-xs">
       <label class="text-sm text-gray-500">Zip Code</label>
       <div v-if="!isEditMode" class="text-gray-800 font-medium">
-        {{ user.zipCode }}
+        <template v-if="user.zipCode">{{ user.zipCode }}</template>
+        <span v-else-if="showEmptyState" class="text-gray-400 italic">No zip code provided</span>
       </div>
       <input
         v-else

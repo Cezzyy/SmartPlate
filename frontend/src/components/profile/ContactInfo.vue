@@ -18,6 +18,10 @@ defineProps({
     type: Object,
     default: () => ({}),
   },
+  showEmptyState: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 defineEmits(['update:formData'])
@@ -28,7 +32,10 @@ defineEmits(['update:formData'])
     <!-- Email -->
     <div class="flex flex-col space-y-1">
       <label class="text-sm text-gray-500">Email Address <span class="text-red-500">*</span></label>
-      <div v-if="!isEditMode" class="text-gray-800 font-medium">{{ user.email }}</div>
+      <div v-if="!isEditMode" class="text-gray-800 font-medium">
+        <template v-if="user.email">{{ user.email }}</template>
+        <span v-else-if="showEmptyState" class="text-gray-400 italic">No email address provided</span>
+      </div>
       <div v-else class="relative">
         <input
           :value="formData.email"
@@ -47,7 +54,8 @@ defineEmits(['update:formData'])
     <div class="flex flex-col space-y-1">
       <label class="text-sm text-gray-500">Telephone Number</label>
       <div v-if="!isEditMode" class="text-gray-800 font-medium">
-        {{ user.telephoneNumber }}
+        <template v-if="user.telephoneNumber">{{ user.telephoneNumber }}</template>
+        <span v-else-if="showEmptyState" class="text-gray-400 italic">No telephone number provided</span>
       </div>
       <input
         v-else
@@ -64,7 +72,8 @@ defineEmits(['update:formData'])
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">International Area Code</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.intAreaCode }}
+          <template v-if="user.intAreaCode">{{ user.intAreaCode }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No area code provided</span>
         </div>
         <input
           v-else
@@ -81,7 +90,8 @@ defineEmits(['update:formData'])
           >Mobile Number <span class="text-red-500">*</span></label
         >
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.mobileNumber }}
+          <template v-if="user.mobileNumber">{{ user.mobileNumber }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No mobile number provided</span>
         </div>
         <div v-else class="relative">
           <input

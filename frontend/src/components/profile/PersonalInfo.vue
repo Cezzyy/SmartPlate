@@ -14,6 +14,10 @@ defineProps({
     type: Object,
     required: true,
   },
+  showEmptyState: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // Tabs for personal information sections
@@ -58,7 +62,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Nationality</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.nationality }}
+            <template v-if="user.nationality">{{ user.nationality }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No nationality provided</span>
           </div>
           <input
             v-else
@@ -73,7 +78,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Civil Status</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.civilStatus }}
+            <template v-if="user.civilStatus">{{ user.civilStatus }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No civil status provided</span>
           </div>
           <select
             v-else
@@ -95,7 +101,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Date of Birth</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ new Date(user.dateOfBirth).toLocaleDateString() }}
+            <template v-if="user.dateOfBirth">{{ new Date(user.dateOfBirth).toLocaleDateString() }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No date of birth provided</span>
           </div>
           <input
             v-else
@@ -110,7 +117,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Place of Birth</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.placeOfBirth }}
+            <template v-if="user.placeOfBirth">{{ user.placeOfBirth }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No place of birth provided</span>
           </div>
           <input
             v-else
@@ -128,7 +136,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Educational Attainment</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.educationalAttainment }}
+            <template v-if="user.educationalAttainment">{{ user.educationalAttainment }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No educational attainment provided</span>
           </div>
           <select
             v-else
@@ -149,7 +158,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">TIN</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.tin }}
+            <template v-if="user.tin">{{ user.tin }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No TIN provided</span>
           </div>
           <input
             v-else
@@ -170,7 +180,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Gender</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.gender }}
+            <template v-if="user.gender">{{ user.gender }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No gender provided</span>
           </div>
           <select
             v-else
@@ -188,7 +199,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Blood Type</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.bloodType }}
+            <template v-if="user.bloodType">{{ user.bloodType }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No blood type provided</span>
           </div>
           <select
             v-else
@@ -214,7 +226,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Complexion</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.complexion }}
+            <template v-if="user.complexion">{{ user.complexion }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No complexion provided</span>
           </div>
           <select
             v-else
@@ -232,7 +245,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Body Type</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.bodyType }}
+            <template v-if="user.bodyType">{{ user.bodyType }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No body type provided</span>
           </div>
           <select
             v-else

@@ -33,6 +33,12 @@ const activeTab = ref('account')
 // Form data for editing
 const formData = reactive({ ...user })
 
+// Default avatar image
+const defaultAvatar = '/Land_Transportation_Office.webp'
+
+// Computed avatar - use the user's avatar if available, otherwise use the default LTO logo
+const userAvatar = computed(() => user.avatar || defaultAvatar)
+
 // Error handling
 const errors = reactive({
   // Account Information
@@ -183,17 +189,12 @@ const goBack = () => {
         <!-- Profile Header -->
         <div class="bg-gradient-to-r from-dark-blue to-blue-900 p-6 text-white">
           <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
-            <div class="relative flex-shrink-0">
+            <div class="flex-shrink-0">
               <img
-                :src="user.avatar"
+                :src="userAvatar"
                 alt="User Avatar"
                 class="w-24 h-24 rounded-full border-4 border-white object-cover"
               />
-              <div
-                class="absolute bottom-0 right-0 bg-red text-white rounded-full w-8 h-8 flex items-center justify-center border-2 border-white"
-              >
-                <font-awesome-icon :icon="['fas', 'camera']" class="w-4 h-4" />
-              </div>
             </div>
             <div class="text-center md:text-left flex-grow">
               <h2 class="text-2xl font-bold">{{ fullName }}</h2>
@@ -312,6 +313,7 @@ const goBack = () => {
             :is-edit-mode="isEditMode"
             :form-data="formData"
             :errors="errors"
+            :show-empty-state="true"
           />
 
           <!-- Contact Information -->
@@ -321,6 +323,7 @@ const goBack = () => {
             :is-edit-mode="isEditMode"
             :form-data="formData"
             :errors="errors"
+            :show-empty-state="true"
           />
 
           <!-- Personal Information -->
@@ -330,6 +333,7 @@ const goBack = () => {
             :is-edit-mode="isEditMode"
             :form-data="formData"
             :errors="errors"
+            :show-empty-state="true"
           />
 
           <!-- People Information -->
@@ -339,6 +343,7 @@ const goBack = () => {
             :is-edit-mode="isEditMode"
             :form-data="formData"
             :errors="errors"
+            :show-empty-state="true"
           />
 
           <!-- Address Information -->
@@ -348,6 +353,7 @@ const goBack = () => {
             :is-edit-mode="isEditMode"
             :form-data="formData"
             :errors="errors"
+            :show-empty-state="true"
           />
         </div>
       </div>
@@ -361,7 +367,7 @@ const goBack = () => {
           </div>
         </div>
         <div class="p-6">
-          <VehiclesInfo :user="user" :is-edit-mode="isEditMode" :form-data="formData" />
+          <VehiclesInfo :user="user" :is-edit-mode="isEditMode" :form-data="formData" :show-empty-state="true" />
         </div>
       </div>
     </main>

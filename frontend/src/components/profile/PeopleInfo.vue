@@ -14,6 +14,10 @@ defineProps({
     type: Object,
     required: true,
   },
+  showEmptyState: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 // Tabs for people information sections
@@ -67,7 +71,8 @@ const activeTab = ref('emergency')
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Emergency Contact Name</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.emergencyContactName }}
+          <template v-if="user.emergencyContactName">{{ user.emergencyContactName }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No emergency contact name provided</span>
         </div>
         <input
           v-else
@@ -84,7 +89,8 @@ const activeTab = ref('emergency')
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Emergency Contact Number</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.emergencyContactNumber }}
+          <template v-if="user.emergencyContactNumber">{{ user.emergencyContactNumber }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No emergency contact number provided</span>
         </div>
         <input
           v-else
@@ -101,7 +107,8 @@ const activeTab = ref('emergency')
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Emergency Contact Address</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.emergencyContactAddress }}
+          <template v-if="user.emergencyContactAddress">{{ user.emergencyContactAddress }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No emergency contact address provided</span>
         </div>
         <textarea
           v-else
@@ -121,7 +128,8 @@ const activeTab = ref('emergency')
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Employer Name</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.employerName }}
+          <template v-if="user.employerName">{{ user.employerName }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No employer name provided</span>
         </div>
         <input
           v-else
@@ -136,7 +144,8 @@ const activeTab = ref('emergency')
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Employer Address</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.employerAddress }}
+          <template v-if="user.employerAddress">{{ user.employerAddress }}</template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">No employer address provided</span>
         </div>
         <textarea
           v-else
@@ -158,7 +167,8 @@ const activeTab = ref('emergency')
           <div class="flex flex-col space-y-1">
             <label class="text-sm text-gray-500">Last Name</label>
             <div v-if="!isEditMode" class="text-gray-800 font-medium">
-              {{ user.motherLastName }}
+              <template v-if="user.motherLastName">{{ user.motherLastName }}</template>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Not provided</span>
             </div>
             <input
               v-else
@@ -175,7 +185,8 @@ const activeTab = ref('emergency')
           <div class="flex flex-col space-y-1">
             <label class="text-sm text-gray-500">First Name</label>
             <div v-if="!isEditMode" class="text-gray-800 font-medium">
-              {{ user.motherFirstName }}
+              <template v-if="user.motherFirstName">{{ user.motherFirstName }}</template>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Not provided</span>
             </div>
             <input
               v-else
@@ -192,7 +203,8 @@ const activeTab = ref('emergency')
           <div class="flex flex-col space-y-1">
             <label class="text-sm text-gray-500">Middle Name</label>
             <div v-if="!isEditMode" class="text-gray-800 font-medium">
-              {{ user.motherMiddleName }}
+              <template v-if="user.motherMiddleName">{{ user.motherMiddleName }}</template>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Not provided</span>
             </div>
             <input
               v-else
@@ -215,7 +227,8 @@ const activeTab = ref('emergency')
           <div class="flex flex-col space-y-1">
             <label class="text-sm text-gray-500">Last Name</label>
             <div v-if="!isEditMode" class="text-gray-800 font-medium">
-              {{ user.fatherLastName }}
+              <template v-if="user.fatherLastName">{{ user.fatherLastName }}</template>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Not provided</span>
             </div>
             <input
               v-else
@@ -232,7 +245,8 @@ const activeTab = ref('emergency')
           <div class="flex flex-col space-y-1">
             <label class="text-sm text-gray-500">First Name</label>
             <div v-if="!isEditMode" class="text-gray-800 font-medium">
-              {{ user.fatherFirstName }}
+              <template v-if="user.fatherFirstName">{{ user.fatherFirstName }}</template>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Not provided</span>
             </div>
             <input
               v-else
@@ -249,7 +263,8 @@ const activeTab = ref('emergency')
           <div class="flex flex-col space-y-1">
             <label class="text-sm text-gray-500">Middle Name</label>
             <div v-if="!isEditMode" class="text-gray-800 font-medium">
-              {{ user.fatherMiddleName }}
+              <template v-if="user.fatherMiddleName">{{ user.fatherMiddleName }}</template>
+              <span v-else-if="showEmptyState" class="text-gray-400 italic">Not provided</span>
             </div>
             <input
               v-else

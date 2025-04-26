@@ -275,6 +275,18 @@ const closePlateModal = () => {
       </div>
     </div>
 
+    <!-- Empty State -->
+    <div
+      v-if="filteredPlates.length === 0"
+      class="bg-white rounded-lg shadow-sm p-12 flex flex-col items-center justify-center"
+    >
+      <div class="bg-gray-100 rounded-full p-4 mb-4">
+        <font-awesome-icon :icon="['fas', 'car']" class="text-gray-400 w-8 h-8" />
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 mb-1">No license plates found</h3>
+      <p class="text-gray-500 mb-4">Try adjusting your search or filter criteria</p>
+    </div>
+
     <!-- Plate Modal -->
     <PlateModal
       :plate="selectedPlate"
