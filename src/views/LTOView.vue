@@ -8,7 +8,8 @@ const Dashboard = defineAsyncComponent(() => import('@/components/lto/LTODashboa
 const Registrations = defineAsyncComponent(() => import('@/components/lto/LTORegistrations.vue'))
 const PendingPlates = defineAsyncComponent(() => import('@/components/lto/LTOPendingPlates.vue'))
 const IssuedPlates = defineAsyncComponent(() => import('@/components/lto/LTOIssuedPlates.vue'))
-const Violations = defineAsyncComponent(() => import('@/components/lto/LTOViolations.vue'))
+const PlateLogs = defineAsyncComponent(() => import('@/components/lto/LTOPlateLogs.vue'))
+const PlateScans = defineAsyncComponent(() => import('@/components/lto/LTOPlateScans.vue'))
 const LogoutModal = defineAsyncComponent(() => import('@/components/modals/LogoutModal.vue'))
 
 const userStore = useUserStore()
@@ -77,7 +78,8 @@ const componentMap: Record<
   | typeof Registrations
   | typeof PendingPlates
   | typeof IssuedPlates
-  | typeof Violations
+  | typeof PlateLogs
+  | typeof PlateScans
 > = {
   dashboard: Dashboard,
   'registrations-pending': Registrations,
@@ -85,7 +87,8 @@ const componentMap: Record<
   'registrations-completed': Registrations,
   'plates-pending': PendingPlates,
   'plates-issued': IssuedPlates,
-  violations: Violations,
+  'plate-logs': PlateLogs,
+  'plate-scans': PlateScans,
 }
 
 const currentUser = computed(() => userStore.currentUser)
@@ -266,17 +269,32 @@ const togglePlateDropdown = () => {
             </transition>
           </div>
 
+          <!-- Logs Button -->
           <button
-            @click="navigateTo('violations')"
+            @click="navigateTo('plate-logs')"
             :class="[
               'w-full flex items-center p-3 rounded-lg transition-colors text-left',
-              activeSection === 'violations'
+              activeSection === 'plate-logs'
                 ? 'bg-light-blue text-white'
                 : 'hover:bg-light-blue hover:bg-opacity-50',
             ]"
           >
-            <font-awesome-icon :icon="['fas', 'exclamation-triangle']" class="w-5 h-5" />
-            <span v-if="isSidebarOpen" class="ml-3 truncate">Violations</span>
+            <font-awesome-icon :icon="['fas', 'history']" class="w-5 h-5" />
+            <span v-if="isSidebarOpen" class="ml-3 truncate">Plate Logs</span>
+          </button>
+
+          <!-- Scans Button -->
+          <button
+            @click="navigateTo('plate-scans')"
+            :class="[
+              'w-full flex items-center p-3 rounded-lg transition-colors text-left',
+              activeSection === 'plate-scans'
+                ? 'bg-light-blue text-white'
+                : 'hover:bg-light-blue hover:bg-opacity-50',
+            ]"
+          >
+            <font-awesome-icon :icon="['fas', 'qrcode']" class="w-5 h-5" />
+            <span v-if="isSidebarOpen" class="ml-3 truncate">Plate Scans</span>
           </button>
         </nav>
 
@@ -326,11 +344,13 @@ const togglePlateDropdown = () => {
                       ? 'Pending Plates'
                       : activeSection === 'plates-issued'
                         ? 'Issued Plates'
-                        : activeSection === 'violations'
-                          ? 'Vehicle Violations'
-                          : activeSection.includes('registrations')
-                            ? `${registrationStatus.charAt(0).toUpperCase() + registrationStatus.slice(1)} Registrations`
-                            : 'LTO Portal'
+                        : activeSection === 'plate-logs'
+                          ? 'Plate Logs'
+                          : activeSection === 'plate-scans'
+                            ? 'Plate Scans'
+                            : activeSection.includes('registrations')
+                              ? `${registrationStatus.charAt(0).toUpperCase() + registrationStatus.slice(1)} Registrations`
+                              : 'LTO Portal'
                 }}
               </h1>
             </div>

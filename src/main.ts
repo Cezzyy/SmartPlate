@@ -39,6 +39,7 @@ import {
   faChevronDown,
   faChevronUp,
   faArrowUp,
+  faArrowDown,
   faCheckCircle,
   faExclamationCircle,
   faTimesCircle,
@@ -84,6 +85,9 @@ import {
   faQrcode,
   faPlus,
   faCogs,
+  faSpinner,
+  faQuestionCircle,
+  faCircleInfo,
 } from '@fortawesome/free-solid-svg-icons'
 import { faGoogle } from '@fortawesome/free-brands-svg-icons'
 
@@ -107,6 +111,7 @@ const icons: IconDefinition[] = [
   faCamera,
   faArrowLeft,
   faArrowRight,
+  faArrowDown,
   faInfoCircle,
   faHeartbeat,
   faInbox,
@@ -163,6 +168,9 @@ const icons: IconDefinition[] = [
   faQrcode,
   faPlus,
   faCogs,
+  faSpinner,
+  faQuestionCircle,
+  faCircleInfo,
 ]
 library.add(...icons)
 
