@@ -24,8 +24,6 @@ const chartColors = {
   text: '#1F2937', // gray-800
   grid: '#F3F4F6', // gray-100
   pending: '#FBBF24', // amber-400
-  ready: '#3B82F6', // blue-500
-  issued: '#10B981', // green-500
 }
 
 // Get registration status data
@@ -66,16 +64,16 @@ const registrationStatusData = computed(() => {
 // Get plate status data
 const plateStatusData = computed(() => {
   const statuses = {
-    pending: vehicleRegistrationStore.registrations.filter((reg) => reg.status === 'pending')
+    pending: vehicleRegistrationStore.registrations.filter((reg) => reg.status === 'Pending')
       .length,
-    ready: vehicleRegistrationStore.registrations.filter((reg) => reg.status === 'ready').length,
-    issued: vehicleRegistrationStore.registrations.filter((reg) => reg.status === 'issued').length,
+    approved: vehicleRegistrationStore.registrations.filter((reg) => reg.status === 'Approved').length,
+    completed: vehicleRegistrationStore.registrations.filter((reg) => reg.status === 'Completed').length,
   }
 
   return {
-    labels: ['Pending', 'Ready', 'Issued'],
-    data: [statuses.pending, statuses.ready, statuses.issued],
-    colors: [chartColors.pending, chartColors.ready, chartColors.issued],
+    labels: ['Pending', 'Approved', 'Completed'],
+    data: [statuses.pending, statuses.approved, statuses.completed],
+    colors: [chartColors.pending, chartColors.primary, chartColors.secondary],
   }
 })
 

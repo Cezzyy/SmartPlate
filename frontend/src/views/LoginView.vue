@@ -260,7 +260,7 @@ const handleLogin = async () => {
   <div class="flex min-h-screen relative">
     <!-- Back Button -->
     <button
-      @click="router.back()"
+      @click="router.push('/')"
       class="absolute top-4 left-4 text-white hover:text-red transition-colors focus:outline-none z-10"
     >
       <font-awesome-icon :icon="['fas', 'arrow-left']" class="h-5 w-5" />
