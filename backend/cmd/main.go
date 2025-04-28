@@ -11,6 +11,8 @@ import (
 	"smartplate-api/internal/repository"
 	"smartplate-api/internal/ws"
 
+	"strings"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog"
@@ -25,11 +27,10 @@ func main() {
 	}
 	defer db.Close()
 
-
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	
+
 	// Enhanced CORS configuration
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:5174"},
@@ -56,45 +57,86 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	userHandler := handlers.NewUserHandler(userRepo)
 
-	e.POST("/users", userHandler.CreateUser)//working
-	e.GET("/users", userHandler.GetAllUsers)//working
-	e.GET("/users/:id", userHandler.GetUserByID)//working
-	e.GET("/users/email/:email", userHandler.GetUserByEmail)//working
-	e.PUT("/users/:id", userHandler.UpdateUser)	//working
-	e.DELETE("/users/:id", userHandler.DeleteUser)//working
+	// Setup AuthHandler and login endpoint
+	tokenRepo := repository.NewPasswordResetTokenRepository(db)
+	authHandler := handlers.NewAuthHandler(userRepo, tokenRepo)
+	e.POST("/login", authHandler.Login)
+	e.POST("/admin/login", authHandler.AdminLogin)
+	e.POST("/request-password-reset", authHandler.RequestPasswordReset)
+
+	// Debug endpoint for checking admin accounts (REMOVE IN PRODUCTION)
+	e.GET("/debug/admin-accounts", func(c echo.Context) error {
+		// Get all users from the repository
+		users, err := userRepo.GetAll()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": fmt.Sprintf("Failed to fetch users: %v", err),
+			})
+		}
+
+		// Filter for admin and LTO officer accounts only
+		adminUsers := []map[string]interface{}{}
+		for _, user := range users {
+			role := strings.ToLower(user.ROLE)
+			if role == "admin" || role == "lto officer" {
+				// Return basic user info without sensitive data
+				adminUsers = append(adminUsers, map[string]interface{}{
+					"ltoClientId": user.LTO_CLIENT_ID,
+					"email":       user.EMAIL,
+					"role":        user.ROLE,
+					"firstName":   user.FIRST_NAME,
+					"lastName":    user.LAST_NAME,
+					"status":      user.STATUS,
+				})
+			}
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"adminCount": len(adminUsers),
+			"adminUsers": adminUsers,
+		})
+	})
+
+	// User endpoints
+	e.POST("/users", userHandler.CreateUser)                 //working
+	e.GET("/users", userHandler.GetAllUsers)                 //working
+	e.GET("/users/:id", userHandler.GetUserByID)             //working
+	e.GET("/users/email/:email", userHandler.GetUserByEmail) //working
+	e.PUT("/users/:id", userHandler.UpdateUser)              //working
+	e.DELETE("/users/:id", userHandler.DeleteUser)           //working
 
 	//for getting user by lto client id
-	e.GET("/users/lto/:lto_client_id", userHandler.GetUserByLTOID)//working
-	e.PUT("/users/by-lto/:lto_client_id", userHandler.UpdateUserByLTO)//working
-	e.DELETE("/users/by-lto/:lto_client_id", userHandler.DeleteUserByLTO)//working
+	e.GET("/users/lto/:lto_client_id", userHandler.GetUserByLTOID)        //working
+	e.PUT("/users/by-lto/:lto_client_id", userHandler.UpdateUserByLTO)    //working
+	e.DELETE("/users/by-lto/:lto_client_id", userHandler.DeleteUserByLTO) //working
 	//for generating lto client id
-	// e.GET("/generate-lto-id", userHandler.GenerateLTOID)  
+	// e.GET("/generate-lto-id", userHandler.GenerateLTOID)
 
 	//for Vehicle routes
 	vh := handlers.NewVehicleHandler(repository.NewVehicleRepository(db))
 
-	e.POST   ("/api/vehicles",       vh.CreateVehicle)//working
-	e.GET    ("/api/vehicles",       vh.GetAllVehicles)//working
+	e.POST("/api/vehicles", vh.CreateVehicle) //working
+	e.GET("/api/vehicles", vh.GetAllVehicles) //working
 
-	e.GET    ("/api/vehicles/:id",   vh.GetVehicle)//working
-	e.PUT    ("/api/vehicles/:id",   vh.UpdateVehicle) //working
-	e.DELETE ("/api/vehicles/:id",   vh.DeleteVehicle)//working
+	e.GET("/api/vehicles/:id", vh.GetVehicle)       //working
+	e.PUT("/api/vehicles/:id", vh.UpdateVehicle)    //working
+	e.DELETE("/api/vehicles/:id", vh.DeleteVehicle) //working
 
-	e.GET    ("/api/vehicles/lto/:lto_client_id", vh.GetByClientID)//working
-	e.PUT    ("/api/vehicles/lto/:lto_client_id", vh.UpdateByClientID)//working
-	e.DELETE ("/api/vehicles/lto/:lto_client_id", vh.DeleteByClientID)//working
+	e.GET("/api/vehicles/lto/:lto_client_id", vh.GetByClientID)       //working
+	e.PUT("/api/vehicles/lto/:lto_client_id", vh.UpdateByClientID)    //working
+	e.DELETE("/api/vehicles/lto/:lto_client_id", vh.DeleteByClientID) //working
 
 	//for plates routes
 	// plateRepo    := repository.NewPlateRepository(db)
 	plateRepo := repository.NewPlateRepository(db)
 	plateHandler := handlers.NewPlateHandler(plateRepo)
-	
+
 	p := e.Group("/api/vehicles/:vehicle_id/plates")
-	p.POST   ("",               plateHandler.CreatePlate)//working
-	p.GET    ("",               plateHandler.GetPlates)//working
-	p.GET    ("/:plate_id",   plateHandler.GetPlateByID)//working
-	p.PUT	 ("/:plate_id",   plateHandler.UpdatePlate)//working
-	p.DELETE("/:plate_id",    plateHandler.DeletePlateByID)//working
+	p.POST("", plateHandler.CreatePlate)                 //working
+	p.GET("", plateHandler.GetPlates)                    //working
+	p.GET("/:plate_id", plateHandler.GetPlateByID)       //working
+	p.PUT("/:plate_id", plateHandler.UpdatePlate)        //working
+	p.DELETE("/:plate_id", plateHandler.DeletePlateByID) //working
 
 	//registration routes
 	rfRepo := repository.NewRegistrationFormRepository(db)
@@ -102,16 +144,16 @@ func main() {
 	rpRepo := repository.NewRegistrationPaymentRepository(db)
 	rdRepo := repository.NewRegistrationDocumentRepository(db)
 	vRepo := repository.NewVehicleRepository(db)
-	
+
 	rh := handlers.NewRegistrationHandler(rfRepo, riRepo, rpRepo, rdRepo, vRepo)
 	g := e.Group("/api/registration-form")
-	g.POST("", rh.CreateForm)//working
-	g.GET("", rh.GetAllForms)//working
-	g.GET("/:id", rh.GetFormByID)//working
-	g.PUT("/:id", rh.UpdateForm)//working
-	g.DELETE("/:id", rh.DeleteForm)//working
+	g.POST("", rh.CreateForm)       //working
+	g.GET("", rh.GetAllForms)       //working
+	g.GET("/:id", rh.GetFormByID)   //working
+	g.PUT("/:id", rh.UpdateForm)    //working
+	g.DELETE("/:id", rh.DeleteForm) //working
 	g.GET("/:id/full", rh.GetFull)
-	
+
 	e.GET("/api/generate-plate/:vehicle_type", func(c echo.Context) error {
 		vt := c.Param("vehicle_type")
 		if vt == "" {
@@ -120,67 +162,66 @@ func main() {
 		pt := c.QueryParam("plateType")
 		if pt == "" {
 			pt = "Private"
-	}
+		}
 		reg := c.QueryParam("region")
 		if reg == "" {
 			reg = "NCR"
-	}
+		}
 		plate := plate.GeneratePlateNumber(vt, pt, reg)
 		return c.JSON(http.StatusOK, map[string]string{"plate": plate})
 	})
 
 	// inspection
-	g.POST("/:id/inspection", rh.CreateInspection)//working
-	g.GET("/:id/inspection", rh.GetInspections)//working
-	g.GET("/:id/inspection/:inspId", rh.GetInspection)//working
-	g.PUT("/:id/inspection/:inspId", rh.UpdateInspection)//working
-	g.DELETE("/:id/inspection/:inspId", rh.DeleteInspection)//working
+	g.POST("/:id/inspection", rh.CreateInspection)           //working
+	g.GET("/:id/inspection", rh.GetInspections)              //working
+	g.GET("/:id/inspection/:inspId", rh.GetInspection)       //working
+	g.PUT("/:id/inspection/:inspId", rh.UpdateInspection)    //working
+	g.DELETE("/:id/inspection/:inspId", rh.DeleteInspection) //working
 
 	// payment
-	g.POST("/:id/payment", rh.CreatePayment)//working
-	g.GET("/:id/payment", rh.GetPayments)//working
-	g.GET("/:id/payment/:payId", rh.GetPayment)//working
-	g.PUT("/:id/payment/:payId", rh.UpdatePayment)//working
-	g.DELETE("/:id/payment/:payId", rh.DeletePayment)//woriking
+	g.POST("/:id/payment", rh.CreatePayment)          //working
+	g.GET("/:id/payment", rh.GetPayments)             //working
+	g.GET("/:id/payment/:payId", rh.GetPayment)       //working
+	g.PUT("/:id/payment/:payId", rh.UpdatePayment)    //working
+	g.DELETE("/:id/payment/:payId", rh.DeletePayment) //woriking
 
 	// document
-	g.POST("/:id/document", rh.CreateDocument)//working
-	g.GET("/:id/document", rh.GetDocuments)//working
-	g.GET("/:id/document/:docId", rh.GetDocument)//working
-	g.PUT("/:id/document/:docId", rh.UpdateDocument)//working
-	g.DELETE("/:id/document/:docId", rh.DeleteDocument)//working
+	g.POST("/:id/document", rh.CreateDocument)          //working
+	g.GET("/:id/document", rh.GetDocuments)             //working
+	g.GET("/:id/document/:docId", rh.GetDocument)       //working
+	g.PUT("/:id/document/:docId", rh.UpdateDocument)    //working
+	g.DELETE("/:id/document/:docId", rh.DeleteDocument) //working
 
 	//websocket
 	scanLogRepo := repository.NewScanLogRepository(db)
 	ws.SetScanLogRepository(scanLogRepo)
 	e.GET("/ws/scan", ws.ScannerWS(plateRepo, rfRepo, userRepo))
 
-// scan-log endpoints
-	scanLogHandler   := handlers.NewScanLogHandler(scanLogRepo)
+	// scan-log endpoints
+	scanLogHandler := handlers.NewScanLogHandler(scanLogRepo)
 	e.POST("/api/scan-log", scanLogHandler.Create)
-	e.GET( "/api/scan-log", scanLogHandler.GetAll)
-	e.GET( "/api/scan-log/:id", scanLogHandler.GetByID)
+	e.GET("/api/scan-log", scanLogHandler.GetAll)
+	e.GET("/api/scan-log/:id", scanLogHandler.GetByID)
 
 	// // Start server
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
-e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-    LogStatus: true,
-    LogURI:    true,
-    LogMethod: true,
-    LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-        logger.Info().
-            Str("URI", v.URI).
-            Str("method", v.Method).
-            Int("status", v.Status).
-            Msg("request")
-        return nil
-    },
-}))
-fmt.Println("Registered routes:")
-for _, route := range e.Routes() {
-    fmt.Printf("%-6s %s\n", route.Method, route.Path)
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus: true,
+		LogURI:    true,
+		LogMethod: true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			logger.Info().
+				Str("URI", v.URI).
+				Str("method", v.Method).
+				Int("status", v.Status).
+				Msg("request")
+			return nil
+		},
+	}))
+	fmt.Println("Registered routes:")
+	for _, route := range e.Routes() {
+		fmt.Printf("%-6s %s\n", route.Method, route.Path)
+	}
+	// Then start the server
+	e.Logger.Fatal(e.Start(":8081"))
 }
-// Then start the server
-e.Logger.Fatal(e.Start(":8081"))
-}
-

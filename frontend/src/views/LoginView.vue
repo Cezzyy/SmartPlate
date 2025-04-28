@@ -85,9 +85,21 @@ const handleRegistration = () => {
       email: registerData.email,
       password: registerData.password,
     })
-
-    // Redirect to the full registration form
-    router.push('/register')
+    .then(() => {
+      // Redirect to the full registration form
+      router.push('/register')
+    })
+    .catch(error => {
+      // Check for email already exists error
+      if (error.response && error.response.data) {
+        if (error.response.status === 409 || (error.response.data.error === 'Email already exists')) {
+          errors.registerEmail = 'Email already exists'
+          return
+        }
+      }
+      // For other errors
+      errors.registerForm = error.response?.data?.error || 'Registration failed. Please try again.'
+    })
   }
 }
 
@@ -214,7 +226,10 @@ const validatePasswordMatch = () => {
 }
 
 // Form submission handlers with validation
-const validateAndLogin = () => {
+const validateAndLogin = (e) => {
+  // If event is passed, prevent default behavior
+  if (e) e.preventDefault()
+  
   clearErrors()
 
   const isEmailValid = validateLoginEmail()
@@ -223,9 +238,15 @@ const validateAndLogin = () => {
   if (isEmailValid && isPasswordValid) {
     handleLogin()
   }
+  
+  // Prevent form submission
+  return false
 }
 
-const validateAndRegister = () => {
+const validateAndRegister = (e) => {
+  // If event is passed, prevent default behavior
+  if (e) e.preventDefault()
+  
   clearErrors()
 
   const isEmailValid = validateRegisterEmail()
@@ -235,24 +256,42 @@ const validateAndRegister = () => {
   if (isEmailValid && isPasswordValid && isConfirmPasswordValid) {
     handleRegistration()
   }
+  
+  // Prevent form submission
+  return false
 }
 
-// Form submission handlers
-const handleLogin = async () => {
-  try {
-    // Show loading state
-    errors.form = 'Logging in...'
+// Handle login form submission
+const handleLogin = async (e) => {
+  // If event is passed, prevent default behavior
+  if (e) e.preventDefault()
+  
+  clearErrors()
 
-    // Call the login action from the user store
-    await userStore.login(email.value, password.value)
+  const isEmailValid = validateLoginEmail()
+  const isPasswordValid = validateLoginPassword()
 
-    // Check for redirect query parameter
-    const redirectPath = route.query.redirect || '/home'
-    router.push(redirectPath)
-  } catch {
-    // Display error message
-    errors.form = userStore.error || 'Login failed. Please try again.'
+  if (isEmailValid && isPasswordValid) {
+    try {
+      // Show loading state
+      errors.form = 'Logging in...'
+      
+      // Call the login action from the user store which now uses userService
+      await userStore.login(email.value, password.value)
+
+      // Only redirect after successful login
+      const redirectPath = route.query.redirect || '/home'
+      router.push(redirectPath.toString())
+    } catch (error) {
+      console.error('Login error:', error)
+      errors.form = error.response?.data?.error || 'Invalid email or password'
+      // Clear password on failed login attempt
+      password.value = ''
+    }
   }
+  
+  // Prevent form submission
+  return false
 }
 </script>
 
@@ -300,7 +339,11 @@ const handleLogin = async () => {
             <h1 class="text-3xl font-bold text-dark-blue mb-2">SmartPlate</h1>
             <p class="text-gray text-base">Sign in to access your account!</p>
           </div>
-          <form @submit.prevent="validateAndLogin" class="flex flex-col gap-5" novalidate>
+          <form 
+            @submit="(e) => { e.preventDefault(); return false; }" 
+            class="flex flex-col gap-5" 
+            novalidate
+          >
             <div class="flex flex-col gap-2">
               <label for="email" class="text-sm font-semibold text-dark-blue">Email</label>
               <div class="relative">
@@ -312,6 +355,7 @@ const handleLogin = async () => {
                   id="email"
                   v-model="email"
                   @blur="validateLoginEmail"
+                  @keydown.enter.prevent="validateAndLogin"
                   placeholder="Enter your email"
                   class="w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all"
                   :class="[errors.email ? 'border-red text-red' : 'border-gray-200']"
@@ -334,6 +378,7 @@ const handleLogin = async () => {
                   id="password"
                   v-model="password"
                   @blur="validateLoginPassword"
+                  @keydown.enter.prevent="validateAndLogin"
                   placeholder="Enter your password"
                   class="w-full pl-10 pr-10 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all"
                   :class="[errors.password ? 'border-red text-red' : 'border-gray-200']"
@@ -370,7 +415,8 @@ const handleLogin = async () => {
               <p class="text-sm">{{ errors.form }}</p>
             </div>
             <button
-              type="submit"
+              type="button"
+              @click="(e) => { e.preventDefault(); validateAndLogin(); }"
               class="bg-dark-blue text-white font-semibold py-3 px-4 rounded-lg mt-2 hover:bg-light-blue transform hover:-translate-y-0.5 transition-all hover:shadow-lg active:translate-y-0"
             >
               Log In
@@ -398,7 +444,11 @@ const handleLogin = async () => {
             <h1 class="text-3xl font-bold text-dark-blue mb-2">Create Account</h1>
             <p class="text-gray text-base">Join SmartPlate now!</p>
           </div>
-          <form @submit.prevent="validateAndRegister" class="flex flex-col gap-5" novalidate>
+          <form 
+            @submit="(e) => { e.preventDefault(); return false; }" 
+            class="flex flex-col gap-5" 
+            novalidate
+          >
             <!-- Email Field -->
             <div class="flex flex-col gap-2">
               <label for="registerEmail" class="text-sm font-semibold text-dark-blue">Email</label>
@@ -411,6 +461,7 @@ const handleLogin = async () => {
                   id="registerEmail"
                   v-model="registerData.email"
                   @blur="validateRegisterEmail"
+                  @keydown.enter.prevent="validateAndRegister"
                   placeholder="Enter your email"
                   class="w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all"
                   :class="[errors.registerEmail ? 'border-red text-red' : 'border-gray-200']"
@@ -438,6 +489,7 @@ const handleLogin = async () => {
                   v-model="registerData.password"
                   @blur="validateRegisterPassword"
                   @input="validatePasswordMatch"
+                  @keydown.enter.prevent="validateAndRegister"
                   placeholder="Create a password"
                   class="w-full pl-10 pr-10 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all"
                   :class="[errors.registerPassword ? 'border-red text-red' : 'border-gray-200']"
@@ -477,6 +529,7 @@ const handleLogin = async () => {
                   v-model="registerData.confirmPassword"
                   @blur="validateConfirmPassword"
                   @input="validatePasswordMatch"
+                  @keydown.enter.prevent="validateAndRegister"
                   placeholder="Confirm your password"
                   class="w-full pl-10 pr-10 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all"
                   :class="[errors.confirmPassword ? 'border-red text-red' : 'border-gray-200']"
@@ -510,7 +563,8 @@ const handleLogin = async () => {
             </div>
 
             <button
-              type="submit"
+              type="button"
+              @click="(e) => { e.preventDefault(); validateAndRegister(); }"
               class="bg-dark-blue text-white font-semibold py-3 px-4 rounded-lg mt-2 hover:bg-light-blue transform hover:-translate-y-0.5 transition-all hover:shadow-lg active:translate-y-0"
             >
               Continue Registration

@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, ref, computed } from 'vue'
+import { defineProps, defineEmits, ref, computed } from 'vue'
 import { useVehicleRegistrationStore } from '@/stores/vehicleRegistration'
 
 defineProps({
@@ -15,11 +15,17 @@ defineProps({
     type: Object,
     required: true,
   },
+  errors: {
+    type: Object,
+    default: () => ({}),
+  },
   showEmptyState: {
     type: Boolean,
     default: false,
   },
 })
+
+defineEmits(['update:formData'])
 
 // Get vehicle registration store
 const vehicleStore = useVehicleRegistrationStore()

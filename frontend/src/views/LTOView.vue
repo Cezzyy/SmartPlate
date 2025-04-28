@@ -29,7 +29,6 @@ const confirmLogout = () => {
 
 const handleLogout = () => {
   userStore.logout()
-  showLogoutModal.value = false
 }
 
 const cancelLogout = () => {
@@ -47,26 +46,51 @@ onMounted(() => {
   console.log('LTOView mounted, checking authentication...')
 
   // Force authentication check
-  const isAuthenticated = userStore.isAuthenticated || userStore.checkAuth()
-  const userRole = userStore.userRole
+  const isAuthenticated = userStore.checkAuth()
+  
+  // Get role directly from localStorage if available
+  let currentRole = localStorage.getItem('userRole') || '';
+  
+  // Try to get from user state if not found in localStorage
+  if (!currentRole && userStore.currentUser) {
+    console.log('User state in LTOView:', userStore.currentUser);
+    
+    const roleValue = userStore.currentUser.role;
+    
+    if (roleValue !== undefined && roleValue !== null) {
+      currentRole = typeof roleValue === 'string' ? roleValue : String(roleValue);
+    }
+  }
+  
+  const normalizedRole = currentRole.toLowerCase();
+  const isLtoOfficer = normalizedRole === 'lto officer';
+  const isAdmin = normalizedRole === 'admin';
 
-  console.log('Authentication state:', { isAuthenticated, userRole })
+  console.log('Authentication state:', { 
+    isAuthenticated, 
+    currentRole,
+    normalizedRole,
+    isLtoOfficer,
+    isAdmin
+  })
 
-  // If not authenticated or not an LTO Officer (except admin)
+  // If not authenticated, redirect to login
   if (!isAuthenticated) {
     console.log('Not authenticated, redirecting to login')
     router.push('/login')
     return
   }
 
-  if (userRole !== 'LTO Officer' && userRole !== 'admin') {
+  // If not LTO Officer or admin, redirect
+  if (!isLtoOfficer && !isAdmin) {
     console.log('Not authorized as LTO Officer, redirecting to appropriate view')
-    if (userRole === 'admin') {
-      router.push('/admin')
-    } else {
-      router.push('/home')
-    }
+    router.push('/home')
     return
+  }
+  
+  // If user is an admin, let them know they can access admin portal
+  if (isAdmin && !isLtoOfficer) {
+    console.log('Admin viewing LTO portal - they have access to both portals')
   }
 
   console.log('Authentication check passed, user can access LTO View')

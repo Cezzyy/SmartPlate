@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, ref } from 'vue'
+import { defineProps, defineEmits, ref } from 'vue'
 
 defineProps({
   user: {
@@ -14,11 +14,17 @@ defineProps({
     type: Object,
     required: true,
   },
+  errors: {
+    type: Object,
+    default: () => ({}),
+  },
   showEmptyState: {
     type: Boolean,
     default: false,
   },
 })
+
+defineEmits(['update:formData'])
 
 // Tabs for personal information sections
 const activeTab = ref('general')
@@ -268,7 +274,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Eye Color</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.eyeColor }}
+            <template v-if="user.eyeColor">{{ user.eyeColor }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No eye color provided</span>
           </div>
           <input
             v-else
@@ -283,7 +290,8 @@ const activeTab = ref('general')
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Hair Color</label>
           <div v-if="!isEditMode" class="text-gray-800 font-medium">
-            {{ user.hairColor }}
+            <template v-if="user.hairColor">{{ user.hairColor }}</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No hair color provided</span>
           </div>
           <input
             v-else
@@ -300,7 +308,10 @@ const activeTab = ref('general')
         <!-- Weight -->
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Weight (kg)</label>
-          <div v-if="!isEditMode" class="text-gray-800 font-medium">{{ user.weight }} kg</div>
+          <div v-if="!isEditMode" class="text-gray-800 font-medium">
+            <template v-if="user.weight">{{ user.weight }} kg</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No weight provided</span>
+          </div>
           <input
             v-else
             :value="formData.weight"
@@ -313,7 +324,10 @@ const activeTab = ref('general')
         <!-- Height -->
         <div class="flex flex-col space-y-1">
           <label class="text-sm text-gray-500">Height (cm)</label>
-          <div v-if="!isEditMode" class="text-gray-800 font-medium">{{ user.height }} cm</div>
+          <div v-if="!isEditMode" class="text-gray-800 font-medium">
+            <template v-if="user.height">{{ user.height }} cm</template>
+            <span v-else-if="showEmptyState" class="text-gray-400 italic">No height provided</span>
+          </div>
           <input
             v-else
             :value="formData.height"
@@ -328,7 +342,10 @@ const activeTab = ref('general')
       <div class="flex flex-col space-y-1">
         <label class="text-sm text-gray-500">Organ Donor</label>
         <div v-if="!isEditMode" class="text-gray-800 font-medium">
-          {{ user.organDonor ? 'Yes' : 'No' }}
+          <template v-if="user.organDonor !== undefined && user.organDonor !== null">
+            {{ user.organDonor ? 'Yes' : 'No' }}
+          </template>
+          <span v-else-if="showEmptyState" class="text-gray-400 italic">Not specified</span>
         </div>
         <div v-else class="flex items-center space-x-2">
           <input

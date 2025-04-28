@@ -1,125 +1,14 @@
 import { defineStore } from 'pinia'
 import router from '@/router/index'
 import type { User, UserState } from '@/types/user'
+import userService, { LoginCredentials } from '@/services/userService'
 
-// Mock users data
-const mockUsersData: User[] = [
-  {
-    // Account Information
-    ltoClientId: 'LTO-2023-78945',
-    lastName: 'Morales',
-    firstName: 'Stanleigh',
-    middleName: 'Garcia',
-    role: 'user',
-    password: 'password123',
-    status: 'active',
-
-    // Contact Information
-    email: 'stanleighmorales@gmail.com',
-    telephoneNumber: '(02) 8123-4567',
-    intAreaCode: '+63',
-    mobileNumber: '912 345 6789',
-
-    // Personal Information - General
-    nationality: 'Filipino',
-    civilStatus: 'Single',
-    dateOfBirth: '1990-05-15',
-    placeOfBirth: 'Manila, Philippines',
-    educationalAttainment: 'College Graduate',
-    tin: '123-456-789-000',
-
-    // Personal Information - Medical
-    gender: 'Male',
-    bloodType: 'O+',
-    complexion: 'Fair',
-    bodyType: 'Medium',
-    eyeColor: 'Brown',
-    hairColor: 'Black',
-    weight: 70,
-    height: 175,
-    organDonor: false,
-
-    // People - Emergency Contact
-    emergencyContactName: 'Maria Morales',
-    emergencyContactNumber: '+63 917 123 4567',
-    emergencyContactAddress: '123 Main Street, Quezon City',
-
-    // People - Employer
-    employerName: 'ABC Corporation',
-    employerAddress: '789 Corporate Ave, Makati City',
-
-    // People - Mother's Maiden Name
-    motherLastName: 'Santos',
-    motherFirstName: 'Elena',
-    motherMiddleName: 'Cruz',
-
-    // People - Father
-    fatherLastName: 'Morales',
-    fatherFirstName: 'Roberto',
-    fatherMiddleName: 'Reyes',
-
-    // Address
-    houseNo: '123',
-    street: 'Main Street',
-    province: 'Metro Manila',
-    city: 'Quezon City',
-    barangay: 'Barangay 123',
-    zipCode: '1100',
-
-    // Other
-    avatar: '/Land_Transportation_Office.webp',
-  },
-  {
-    ltoClientId: 'LTO-ADMIN-001',
-    lastName: 'Admin',
-    firstName: 'System',
-    middleName: '',
-    role: 'admin',
-    email: 'admin@smartplate.com',
-    password: 'admin123',
-    status: 'active',
-    avatar: '/Land_Transportation_Office.webp',
-  },
-  {
-    ltoClientId: 'LTO-OFFICER-001',
-    lastName: 'OFFICER',
-    firstName: 'TESTER',
-    middleName: '',
-    role: 'LTO Officer',
-    email: 'adminofficer@smartplate.com',
-    password: 'officer123',
-    status: 'active',
-    avatar: '/Land_Transportation_Office.webp',
-  },
-  {
-    ltoClientId: 'LTO-2023-12345',
-    lastName: 'Santos',
-    firstName: 'Maria',
-    middleName: 'Cruz',
-    role: 'user',
-    email: 'maria.santos@gmail.com',
-    password: 'maria123',
-    status: 'active',
-    avatar: '/Land_Transportation_Office.webp',
-  },
-  {
-    ltoClientId: 'LTO-2023-67890',
-    lastName: 'Reyes',
-    firstName: 'Juan',
-    middleName: 'Dela',
-    role: 'user',
-    email: 'juan.reyes@gmail.com',
-    password: 'juan123',
-    status: 'active',
-    avatar: '/Land_Transportation_Office.webp',
-  },
-]
 
 export const useUserStore = defineStore('user', {
   persist: true,
   state: (): UserState => ({
     currentUser: null,
-    users: mockUsersData,
+    users: [],
     isAuthenticated: false,
     token: localStorage.getItem('token') || null,
     loading: false,
@@ -132,119 +21,287 @@ export const useUserStore = defineStore('user', {
   }),
 
   getters: {
-    fullName: (state): string => {
-      if (!state.currentUser) return ''
-      return `${state.currentUser.firstName} ${state.currentUser.middleName ? state.currentUser.middleName + ' ' : ''}${state.currentUser.lastName}`
+    isAdmin(): boolean {
+      const role = this.currentUser?.role;
+      if (!role) return false;
+      
+      // Handle both string format and object format (from JSON parsing)
+      const roleValue = typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase();
+      return roleValue === 'admin';
+    },
+    isLtoOfficer(): boolean {
+      const role = this.currentUser?.role;
+      if (!role) return false;
+      
+      // Handle both string format and object format (from JSON parsing)
+      const roleValue = typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase();
+      return roleValue === 'lto officer';
+    },
+    isAdminOrLtoOfficer(): boolean {
+      return this.isAdmin || this.isLtoOfficer;
+    },
+    fullName(): string {
+      if (!this.currentUser) return '';
+      
+      const firstName = this.currentUser.firstName || '';
+      const lastName = this.currentUser.lastName || '';
+      const middleName = this.currentUser.middleName || '';
+      
+      if (!firstName && !lastName) return 'User';
+      
+      // Format as "FirstName M. LastName" if middle name exists, otherwise "FirstName LastName"
+      const middleInitial = middleName ? `${middleName.charAt(0)}. ` : '';
+      
+      return `${firstName} ${middleInitial}${lastName}`.trim();
     },
 
     userRole: (state): string => state.currentUser?.role || 'guest',
-
-    isAdmin: (state): boolean => state.currentUser?.role === 'admin',
   },
 
   actions: {
     checkAuth(): boolean {
-      const token = localStorage.getItem('token')
-      console.log('Checking authentication with token:', token)
-
-      if (token) {
-        const tokenPrefix = token.startsWith('admin_') ? 'admin_' : 'user_'
-        // Get userId from localStorage as a backup to ensure proper user identification
-        const userId = localStorage.getItem('userId')
-        console.log('Found userId in localStorage:', userId)
-
-        // First try to find the user by userId (more specific)
-        let user = userId ? this.users.find((u) => u.ltoClientId === userId) : null
-
-        // If not found by userId, fall back to role-based search
-        if (!user) {
-          console.log('User not found by userId, searching by role with token prefix:', tokenPrefix)
-          user = this.users.find((u) => {
-            if (tokenPrefix === 'admin_') {
-              // Ensure we match the exact role - either 'admin' OR 'LTO Officer'
-              return u.role === 'admin' || u.role === 'LTO Officer'
+      // Check if token exists in localStorage using userService
+      if (userService.isAuthenticated()) {
+        // Try to get the stored user from localStorage
+        const userJson = localStorage.getItem('user');
+        const storedUser = userJson ? JSON.parse(userJson) : null;
+        
+        if (storedUser) {
+          console.log('Found authenticated user in localStorage:', storedUser);
+          
+          // Check if storedUser is already in the correct format or needs mapping
+          if (storedUser.currentUser) {
+            // This is the store state format, extract the currentUser directly
+            this.currentUser = storedUser.currentUser;
+            this.isAuthenticated = true;
+            this.token = localStorage.getItem('token');
+            
+            console.log('User data from persisted store:', this.currentUser);
+          } else {
+            // Map the stored user to ensure proper format
+            this.currentUser = this.mapBackendUser(storedUser);
+            this.isAuthenticated = true;
+            this.token = localStorage.getItem('token');
+            
+            console.log('User data after mapping:', this.currentUser);
+          }
+          
+          // Verify the token is still valid by checking expiration
+          try {
+            const token = this.token;
+            if (token) {
+              // JWT tokens consist of three parts separated by dots
+              const parts = token.split('.');
+              if (parts.length === 3) {
+                // The payload is the second part
+                const payload = JSON.parse(atob(parts[1]));
+                // Check if token is expired
+                if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+                  console.warn('Token has expired, logging out user');
+                  this.logout();
+                  return false;
+                }
+              }
             }
-            return u.role === 'user'
-          })
+          } catch (error) {
+            console.error('Error validating token:', error);
+            // On error, we'll still consider the user authenticated
+            // but log a warning
+            console.warn('Token validation failed, but proceeding with stored credentials');
+          }
+          
+          return true;
         }
-
-        if (user) {
-          console.log('Found user:', user.ltoClientId, 'with role:', user.role)
-          const userWithoutPassword = { ...user }
-          delete userWithoutPassword.password
-          this.currentUser = userWithoutPassword
-          this.isAuthenticated = true
-          this.token = token
-
-          // Ensure userId is set in localStorage when session is restored
-          console.log('Restoring userId in localStorage:', user.ltoClientId)
-          localStorage.setItem('userId', user.ltoClientId)
-
-          return true
-        } else {
-          console.warn('No matching user found for token')
+        
+        // Fall back to getting user from userService if localStorage doesn't have user data
+        const backendUser = userService.getCurrentUser();
+        if (backendUser) {
+          console.log('Retrieved user from userService:', backendUser);
+          // Convert backend user format to frontend format
+          this.currentUser = this.mapBackendUser(backendUser);
+          this.isAuthenticated = true;
+          this.token = localStorage.getItem('token');
+          
+          // Update localStorage with mapped user
+          localStorage.setItem('user', JSON.stringify(this.currentUser));
+          
+          console.log('User data after mapping from userService:', this.currentUser);
+          
+          return true;
         }
-      } else {
-        console.warn('No token found in localStorage')
       }
-      return false
+      
+      return false;
     },
+    
+    // Maps backend user structure to frontend user structure
+    mapBackendUser(backendUser: any): User {
+      console.log('Backend user data received for mapping:', backendUser);
+      
+      // Unwrap response objects to get to the user data
+      let dataToMap = { ...backendUser };
+      
+      // Check for common API response formats and extract actual user data
+      if (backendUser.user) {
+        dataToMap = { ...dataToMap, ...backendUser.user };
+      }
+      
+      if (backendUser.data) {
+        dataToMap = { ...dataToMap, ...backendUser.data };
+      }
+      
+      // Extract basic user information with proper fallbacks
+      const ltoClientId = dataToMap.LTO_CLIENT_ID || dataToMap.lto_client_id || '';
+      const firstName = dataToMap.FIRST_NAME || dataToMap.first_name || '';
+      const lastName = dataToMap.LAST_NAME || dataToMap.last_name || '';
+      const middleName = dataToMap.MIDDLE_NAME || dataToMap.middle_name || '';
+      const email = dataToMap.EMAIL || dataToMap.email || '';
+      const role = (dataToMap.ROLE || dataToMap.role || 'user').toLowerCase();
+      const status = dataToMap.STATUS || dataToMap.status || 'active';
+      
+      // Extract nested objects
+      const contact = dataToMap.contact || dataToMap.CONTACT || {};
+      const address = dataToMap.address || dataToMap.ADDRESS || {};
+      const medicalInfo = dataToMap.medical_information || dataToMap.MEDICAL_INFORMATION || {};
+      const people = dataToMap.people || dataToMap.PEOPLE || {};
+      const personalInfo = dataToMap.personal_information || dataToMap.PERSONAL_INFORMATION || {};
+      
+      // Log the extracted data for debugging
+      console.log('Extracted data:', {
+        basic: { ltoClientId, firstName, lastName, email, role },
+        nested: { contact, address, medicalInfo, people, personalInfo }
+      });
+      
+      // Create the mapped user object
+      const mappedUser: User = {
+        // Basic user information
+        ltoClientId,
+        firstName,
+        lastName,
+        middleName,
+        email,
+        role: role === 'admin' ? 'admin' : role === 'lto officer' ? 'LTO Officer' : 'user',
+        status,
+        
+        // Contact information
+        telephoneNumber: contact.TELEPHONE_NUMBER || contact.telephone_number || '',
+        intAreaCode: contact.INT_AREA_CODE || contact.int_area_code || '',
+        mobileNumber: contact.MOBILE_NUMBER || contact.mobile_number || '',
+        emergencyContactName: contact.EMERGENCY_CONTACT_NAME || contact.emergency_contact_name || '',
+        emergencyContactNumber: contact.EMERGENCY_CONTACT_NUMBER || contact.emergency_contact_number || '',
+        emergencyContactAddress: contact.EMERGENCY_CONTACT_ADDRESS || contact.emergency_contact_address || '',
+        
+        // Address information
+        houseNo: address.HOUSE_NO || address.house_no || '',
+        street: address.STREET || address.street || '',
+        province: address.PROVINCE || address.province || '',
+        city: address.CITY_MUNICIPALITY || address.city_municipality || '',
+        barangay: address.BARANGAY || address.barangay || '',
+        zipCode: address.ZIP_CODE || address.zip_code || '',
+        
+        // Medical information
+        gender: medicalInfo.GENDER || medicalInfo.gender || '',
+        bloodType: medicalInfo.BLOOD_TYPE || medicalInfo.blood_type || '',
+        complexion: medicalInfo.COMPLEXION || medicalInfo.complexion || '',
+        eyeColor: medicalInfo.EYE_COLOR || medicalInfo.eye_color || '',
+        hairColor: medicalInfo.HAIR_COLOR || medicalInfo.hair_color || '',
+        weight: medicalInfo.WEIGHT || medicalInfo.weight || undefined,
+        height: medicalInfo.HEIGHT || medicalInfo.height || undefined,
+        organDonor: medicalInfo.ORGAN_DONOR || medicalInfo.organ_donor || false,
+        
+        // People information
+        employerName: people.EMPLOYER_NAME || people.employer_name || '',
+        employerAddress: people.EMPLOYER_ADDRESS || people.employer_address || '',
+        motherFirstName: people.MOTHER_FIRST_NAME || people.mother_first_name || '',
+        motherLastName: people.MOTHER_MAIDEN_NAME || people.mother_maiden_name || '',
+        motherMiddleName: people.MOTHER_MIDDLE_NAME || people.mother_middle_name || '',
+        fatherFirstName: people.FATHER_FIRST_NAME || people.father_first_name || '',
+        fatherLastName: people.FATHER_LAST_NAME || people.father_last_name || '',
+        fatherMiddleName: people.FATHER_MIDDLE_NAME || people.father_middle_name || '',
+        
+        // Personal information
+        nationality: personalInfo.NATIONALITY || personalInfo.nationality || '',
+        civilStatus: personalInfo.CIVIL_STATUS || personalInfo.civil_status || '',
+        dateOfBirth: personalInfo.DATE_OF_BIRTH || personalInfo.date_of_birth || '',
+        placeOfBirth: personalInfo.PLACE_OF_BIRTH || personalInfo.place_of_birth || '',
+        educationalAttainment: personalInfo.EDUCATIONAL_ATTAINMENT || personalInfo.educational_attainment || '',
+        tin: personalInfo.TIN || personalInfo.tin || ''
+      };
+      
+      console.log('Mapped user data:', mappedUser);
+      return mappedUser;
+    },
+    
     async login(email: string, password: string, isAdminLogin: boolean = false): Promise<User> {
-      this.loading = true
-      this.error = null
+      this.loading = true;
+      this.error = null;
 
       try {
-        // Find user with matching email and password
-        const foundUser = this.users.find((user) => {
-          // For admin login, only match admin users
-          if (isAdminLogin) {
-            return (
-              (user.role === 'admin' || user.role === 'LTO Officer') &&
-              user.email === email &&
-              user.password === password
-            )
-          }
-          // For regular login, only match non-admin users
-          return user.role === 'user' && user.email === email && user.password === password
-        })
-
-        if (foundUser) {
-          // Set user data (without the password)
-          const userWithoutPassword: User = { ...foundUser }
-          delete userWithoutPassword.password
-          this.currentUser = userWithoutPassword
-          this.isAuthenticated = true
-
-          // Generate token and store it
-          const tokenPrefix = foundUser.role === 'user' ? 'user_' : 'admin_'
-          const fakeToken = tokenPrefix + Math.random().toString(36).substring(2)
-          this.token = fakeToken
-          localStorage.setItem('token', fakeToken)
-
-          // Store user ID in localStorage for form association
-          localStorage.setItem('userId', foundUser.ltoClientId)
-          console.log('Setting userId in localStorage on login:', foundUser.ltoClientId)
-
-          this.loading = false
-          return this.currentUser
-        } else {
-          this.error = 'Invalid email or password'
-          this.loading = false
-          throw new Error('Invalid email or password')
+        // Authenticate using the backend API
+        const credentials: LoginCredentials = { email, password, isAdminLogin };
+        
+        // Use the userService for backend authentication
+        const response = await userService.login(credentials);
+        
+        // Map the user from backend format to frontend format
+        const mappedUser = this.mapBackendUser(response);
+        console.log('Mapped user data after login:', mappedUser);
+        
+        // Store the mapped user data
+        this.currentUser = mappedUser;
+        this.isAuthenticated = true;
+        this.token = response.token;
+        
+        // Store the properly mapped user data in localStorage for persistence
+        localStorage.setItem('token', this.token);
+        localStorage.setItem('user', JSON.stringify(mappedUser));
+        localStorage.setItem('userRole', mappedUser.role);
+        
+        // Store the userId consistently
+        if (mappedUser.ltoClientId) {
+          localStorage.setItem('userId', mappedUser.ltoClientId);
         }
-      } catch (err) {
-        this.loading = false
-        this.error = err instanceof Error ? err.message : 'An error occurred during login'
-        throw err
+        
+        console.log('Successfully authenticated with backend, user data:', mappedUser);
+        console.log('User state after login:', { 
+          currentUser: this.currentUser,
+          role: this.currentUser?.role,
+          isAdmin: this.isAdmin,
+          fullName: this.fullName
+        });
+        
+        this.loading = false;
+        return mappedUser;
+      } catch (error: any) {
+        this.error = error.message || 'Failed to login';
+        this.loading = false;
+        throw error;
       }
     },
 
-    startRegistration(initialData?: Partial<User>): void {
+    startRegistration(initialData?: Partial<User>): Promise<void> {
       this.isRegistering = true
       this.registrationData = initialData || {}
       this.registrationCompleted = false
       this.currentStep = 1
       this.formDirty = false
+      
+      // If initialData contains email, check if it exists
+      if (initialData && initialData.email) {
+        return new Promise((resolve, reject) => {
+          userService.checkEmailExists(initialData.email as string)
+            .then(() => {
+              // Email is available, resolve
+              resolve()
+            })
+            .catch((error: any) => {
+              // Email exists or other error occurred
+              reject(error)
+            })
+        })
+      }
+      
+      return Promise.resolve()
     },
 
     cancelRegistration(): void {
@@ -265,116 +322,172 @@ export const useUserStore = defineStore('user', {
     },
 
     async register(userData: Partial<User>): Promise<User> {
-      this.loading = true
-      this.error = null
+      this.loading = true;
+      this.error = null;
 
       try {
-        const newUser: User = {
-          ...userData,
-          role: 'user',
-          status: 'active',
-          ltoClientId: `LTO-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-        } as User
+        // Create registration data with all fields
+        const registerData: any = {
+          // Basic user information
+          FIRST_NAME: userData.firstName || '',
+          MIDDLE_NAME: userData.middleName || '',
+          LAST_NAME: userData.lastName || '',
+          EMAIL: userData.email || '',
+          PASSWORD: userData.password || '',
+          ROLE: 'user',
+          STATUS: 'active',
+          
+          // Nested objects for extended information
+          contact: {
+            telephone_number: userData.telephoneNumber || null,
+            int_area_code: userData.intAreaCode || null,
+            mobile_number: userData.mobileNumber || null,
+            emergency_contact_name: userData.emergencyContactName || null,
+            emergency_contact_number: userData.emergencyContactNumber || null,
+            emergency_contact_address: userData.emergencyContactAddress || null
+          },
+          
+          address: {
+            house_no: userData.houseNo || null,
+            street: userData.street || null,
+            province: userData.province || null,
+            city_municipality: userData.cityMunicipality || null,
+            barangay: userData.barangay || null,
+            zip_code: userData.zipCode || null
+          },
+          
+          medical_information: {
+            gender: userData.gender || null,
+            blood_type: userData.bloodType || null,
+            complexion: userData.complexion || null,
+            eye_color: userData.eyeColor || null,
+            hair_color: userData.hairColor || null,
+            weight: userData.weight || null,
+            height: userData.height || null,
+            organ_donor: userData.organDonor || false
+          },
+          
+          people: {
+            employer_name: userData.employerName || null,
+            employer_address: userData.employerAddress || null,
+            mother_first_name: userData.motherFirstName || null,
+            mother_maiden_name: userData.motherLastName || null,
+            mother_middle_name: userData.motherMiddleName || null,
+            father_first_name: userData.fatherFirstName || null,
+            father_middle_name: userData.fatherMiddleName || null,
+            father_last_name: userData.fatherLastName || null
+          },
+          
+          personal_information: {
+            nationality: userData.nationality || null,
+            civil_status: userData.civilStatus || null,
+            date_of_birth: userData.dateOfBirth || null,
+            place_of_birth: userData.placeOfBirth || null,
+            educational_attainment: userData.educationalAttainment || null,
+            tin: userData.tin || null
+          }
+        };
 
-        // Add the new user to users array
-        const password = this.registrationData?.password || 'defaultpassword'
-        this.users.push({
-          ...newUser,
-          password,
-        })
-
-        // Set user data (without the password)
-        const userWithoutPassword: User = { ...newUser }
-        delete userWithoutPassword.password
-        this.currentUser = userWithoutPassword
-        this.isAuthenticated = true
-
-        // Generate a fake token and store it
-        const fakeToken = 'user_' + Math.random().toString(36).substring(2)
-        this.token = fakeToken
-        localStorage.setItem('token', fakeToken)
-
-        // Clear registration state and set completion flag
-        this.isRegistering = false
-        this.registrationData = null
-        this.registrationCompleted = true
-        this.formDirty = false
-
-        this.loading = false
-        return this.currentUser
-      } catch (err) {
-        this.loading = false
-        this.error = err instanceof Error ? err.message : 'An error occurred during registration'
-        throw err
+        console.log('Sending complete registration data to server:', registerData);
+        
+        // Use userService for registration
+        const response = await userService.register(registerData);
+        console.log('Backend registration successful, response:', response);
+        
+        // Map the backend response to our format
+        const mappedUser = this.mapBackendUser(response);
+        console.log('Mapped user after registration:', mappedUser);
+        
+        // Add the user to our local users array
+        this.users.push(mappedUser);
+        
+        // Store in localStorage for persistence
+        localStorage.setItem('user', JSON.stringify(mappedUser));
+        const responseAny = response as any;
+        if (responseAny && responseAny.LTO_CLIENT_ID) {
+          localStorage.setItem('userId', responseAny.LTO_CLIENT_ID);
+        } else if (mappedUser.ltoClientId) {
+          localStorage.setItem('userId', mappedUser.ltoClientId);
+        }
+        
+        // Set registration as completed and reset registration state
+        this.registrationCompleted = true;
+        this.isRegistering = false;
+        this.registrationData = null;
+        
+        this.loading = false;
+        return mappedUser;
+      } catch (error: any) {
+        this.error = error.message || 'Failed to register';
+        this.loading = false;
+        throw error;
       }
     },
 
     logout(): void {
-      // Save the current userId to log it
-      const userId = this.currentUser?.ltoClientId
-
-      // Clear the current user and auth state
-      this.currentUser = null
-      this.isAuthenticated = false
-      this.token = null
-
-      // Remove auth tokens
-      localStorage.removeItem('token')
-      console.log('Logging out user:', userId)
-
-      // IMPORTANT: Remove userId from localStorage
-      // This prevents forms from one account being shown in another
-      localStorage.removeItem('userId')
-      console.log('Removed userId from localStorage')
-
-      // Navigate to login page
-      router.push('/login')
+      // Clear local store state first
+      this.currentUser = null;
+      this.isAuthenticated = false;
+      this.token = null;
+      
+      // Use the userService to handle clearing localStorage, but don't call the API
+      // as it seems to not exist on the backend
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('userId'); 
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('loginType');
+      localStorage.removeItem('routeHistory');
+      
+      // Handle router navigation here
+      router.push('/login');
     },
+    
     async updateUserProfile(updatedData: Partial<User>): Promise<User | null> {
-      if (!this.currentUser) return null
+      if (!this.currentUser) return null;
 
-      this.currentUser = {
-        ...this.currentUser,
-        ...updatedData,
+      try {
+        console.log('Updating user profile with data:', updatedData);
+        
+        // Call the backend API to update the user profile
+        const response = await userService.updateProfile(this.currentUser.ltoClientId, updatedData);
+        
+        // Map the response to our format
+        const updatedUser = this.mapBackendUser(response);
+        
+        // Update the local store
+        this.currentUser = updatedUser;
+        
+        // Update localStorage with the updated user
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        console.log('Profile updated successfully:', updatedUser);
+        return updatedUser;
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        return null;
       }
-      return Promise.resolve(this.currentUser)
     },
 
-    // New action for updating any user (not just current user)
+    // Action for updating any user (not just current user)
     async updateUser(userId: string, updatedData: Partial<User>): Promise<User | null> {
       try {
-        // Find the user to update
-        const userIndex = this.users.findIndex((u) => u.ltoClientId === userId)
-
-        if (userIndex === -1) {
-          throw new Error(`User with ID ${userId} not found`)
-        }
-
-        // In a real app, this would call an API
-        // For example:
-        // const response = await api.put(`/users/${userId}`, updatedData)
-
-        // For demo purposes, we'll update the local store
-        const updatedUser = {
-          ...this.users[userIndex],
-          ...updatedData,
-        }
-
-        // Update the user in the store
-        this.users[userIndex] = updatedUser
-
+        // Call the backend API to update the user
+        const response = await userService.updateProfile(userId, updatedData);
+        
+        // Map the response to our format
+        const updatedUser = this.mapBackendUser(response);
+        
         // If the updated user is the currently logged in user, update currentUser also
         if (this.currentUser && this.currentUser.ltoClientId === userId) {
-          this.currentUser = {
-            ...this.currentUser,
-            ...updatedData,
-          }
+          this.currentUser = updatedUser;
+          localStorage.setItem('user', JSON.stringify(updatedUser));
         }
 
-        return updatedUser
+        return updatedUser;
       } catch (error) {
-        console.error('Error updating user:', error)
-        throw error
+        console.error('Error updating user:', error);
+        throw error;
       }
     },
   },

@@ -88,7 +88,7 @@ const formData = reactive({
   houseNo: '',
   street: '',
   province: '',
-  city: '',
+  cityMunicipality: '',
   barangay: '',
   zipCode: '',
 })
@@ -114,6 +114,13 @@ const errors = reactive({
 
   // Personal Information
   dateOfBirth: '',
+  
+  // Address Information
+  houseNo: '',
+  street: '',
+  province: '',
+  cityMunicipality: '',
+  zipCode: '',
 
   // Form
   form: '',
@@ -129,20 +136,27 @@ const isStepComplete = computed(() => {
       return (
         formData.firstName.trim() !== '' &&
         formData.lastName.trim() !== '' &&
-        formData.email.trim() !== ''
+        formData.email.trim() !== '' &&
+        !errors.firstName &&
+        !errors.lastName &&
+        !errors.email
       )
     case 2: // Contact Information
-      return formData.mobileNumber.trim() !== ''
+      return formData.mobileNumber.trim() !== '' && !errors.mobileNumber
     case 3: // Personal Information
-      return formData.dateOfBirth !== ''
+      return formData.dateOfBirth !== '' && !errors.dateOfBirth
     case 4: // People Information
       return true // Optional fields
     case 5: // Address Information
       return (
         formData.houseNo.trim() !== '' &&
         formData.street.trim() !== '' &&
-        formData.city.trim() !== '' &&
-        formData.province.trim() !== ''
+        formData.cityMunicipality.trim() !== '' &&
+        formData.province.trim() !== '' &&
+        !errors.houseNo &&
+        !errors.street &&
+        !errors.cityMunicipality &&
+        !errors.province
       )
     default:
       return false
@@ -239,7 +253,14 @@ const validateContactInfo = () => {
     errors.mobileNumber = 'Mobile number is required'
     isValid = false
   } else {
-    errors.mobileNumber = ''
+    // Philippine mobile number validation - should be 10 digits starting with 9
+    const mobileRegex = /^9\d{9}$/
+    if (!mobileRegex.test(formData.mobileNumber.trim())) {
+      errors.mobileNumber = 'Please enter a valid PH mobile number (e.g., 9XXXXXXXXX)'
+      isValid = false
+    } else {
+      errors.mobileNumber = ''
+    }
   }
 
   return isValid
@@ -253,34 +274,149 @@ const validatePersonalInfo = () => {
     errors.dateOfBirth = 'Date of birth is required'
     isValid = false
   } else {
-    errors.dateOfBirth = ''
+    // Check if date is not in the future
+    const selectedDate = new Date(formData.dateOfBirth)
+    const today = new Date()
+    
+    if (selectedDate > today) {
+      errors.dateOfBirth = 'Date of birth cannot be in the future'
+      isValid = false
+    } else {
+      // Check if person is at least 17 years old (for license eligibility)
+      const minAgeDate = new Date(today)
+      minAgeDate.setFullYear(today.getFullYear() - 17)
+      
+      if (selectedDate > minAgeDate) {
+        errors.dateOfBirth = 'You must be at least 17 years old'
+        isValid = false
+      } else {
+        errors.dateOfBirth = ''
+      }
+    }
   }
 
   return isValid
 }
 
 const validateAddress = () => {
-  // Address validation logic here if needed
-  return true
+  let isValid = true
+  
+  // House Number validation
+  if (formData.houseNo.trim() === '') {
+    errors.houseNo = 'House/Unit number is required'
+    isValid = false
+  } else {
+    errors.houseNo = ''
+  }
+  
+  // Street validation
+  if (formData.street.trim() === '') {
+    errors.street = 'Street is required'
+    isValid = false
+  } else {
+    errors.street = ''
+  }
+  
+  // City validation
+  if (formData.cityMunicipality.trim() === '') {
+    errors.cityMunicipality = 'City/Municipality is required'
+    isValid = false
+  } else {
+    errors.cityMunicipality = ''
+  }
+  
+  // Province validation
+  if (formData.province.trim() === '') {
+    errors.province = 'Province is required'
+    isValid = false
+  } else {
+    errors.province = ''
+  }
+  
+  // ZIP Code validation - optional but should be numeric if provided
+  if (formData.zipCode.trim() !== '') {
+    const zipRegex = /^\d{4}$/
+    if (!zipRegex.test(formData.zipCode.trim())) {
+      errors.zipCode = 'ZIP code should be 4 digits'
+      isValid = false
+    } else {
+      errors.zipCode = ''
+    }
+  } else {
+    errors.zipCode = ''
+  }
+  
+  return isValid
 }
 
-// Form submission
+// Submit registration to the API
 const submitRegistration = async () => {
-  if (!validateAddress()) {
-    return
-  }
+  isSubmitting.value = true
+  errors.form = ''
 
   try {
-    isSubmitting.value = true
-    errors.form = 'Creating your account...'
+    // Use the store's register method with ALL form data
+    const user = await userStore.register({
+      // Account information
+      firstName: formData.firstName,
+      middleName: formData.middleName,
+      lastName: formData.lastName,
+      email: formData.email,
+      password: userStore.registrationData?.password || '',
+      
+      // Contact Information
+      telephoneNumber: formData.telephoneNumber,
+      intAreaCode: formData.intAreaCode,
+      mobileNumber: formData.mobileNumber,
+      emergencyContactName: formData.emergencyContactName,
+      emergencyContactNumber: formData.emergencyContactNumber,
+      emergencyContactAddress: formData.emergencyContactAddress,
+      
+      // Personal Information - General
+      nationality: formData.nationality,
+      civilStatus: formData.civilStatus,
+      dateOfBirth: formData.dateOfBirth,
+      placeOfBirth: formData.placeOfBirth,
+      educationalAttainment: formData.educationalAttainment,
+      tin: formData.tin,
+      
+      // Personal Information - Medical
+      gender: formData.gender,
+      bloodType: formData.bloodType,
+      complexion: formData.complexion,
+      eyeColor: formData.eyeColor,
+      hairColor: formData.hairColor,
+      weight: formData.weight,
+      height: formData.height,
+      organDonor: formData.organDonor,
+      
+      // People - Family
+      motherFirstName: formData.motherFirstName,
+      motherLastName: formData.motherLastName,
+      motherMiddleName: formData.motherMiddleName,
+      fatherFirstName: formData.fatherFirstName,
+      fatherLastName: formData.fatherLastName,
+      fatherMiddleName: formData.fatherMiddleName,
+      
+      // People - Employer
+      employerName: formData.employerName,
+      employerAddress: formData.employerAddress,
+      
+      // Address
+      houseNo: formData.houseNo,
+      street: formData.street,
+      province: formData.province,
+      cityMunicipality: formData.cityMunicipality,
+      barangay: formData.barangay,
+      zipCode: formData.zipCode,
+    })
 
-    // Register the user using the Pinia store
-    await userStore.register(formData)
-
-    // Redirect to home page after successful registration
-    router.push('/home')
-  } catch {
-    errors.form = userStore.error || 'Registration failed. Please try again.'
+    // Registration successful - redirect to login page
+    router.push('/login')
+  } catch (error) {
+    console.error('Registration error:', error)
+    errors.form = 'Failed to register. Please try again.'
+  } finally {
     isSubmitting.value = false
   }
 }
@@ -635,18 +771,18 @@ const submitRegistration = async () => {
                       id="mobileNumber"
                       v-model="formData.mobileNumber"
                       type="tel"
+                      pattern="[0-9]*"
+                      inputmode="numeric"
+                      maxlength="10"
+                      @input="formData.mobileNumber = formData.mobileNumber.replace(/\D/g,'')"
+                      @blur="validateContactInfo"
                       class="peer w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
                       :class="[errors.mobileNumber ? 'border-red text-red' : 'border-gray-300']"
-                      placeholder=" "
+                      placeholder="9XXXXXXXXX"
                     />
-                    <label
-                      for="mobileNumber"
-                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
-                    >
-                      9XX XXX XXXX
-                    </label>
                   </div>
                 </div>
+                <p class="text-xs text-gray-500 mt-1">Format: 9XXXXXXXXX (without the leading zero)</p>
                 <div v-if="errors.mobileNumber" class="flex items-center gap-2 mt-1 text-red">
                   <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
                   <p class="text-xs">{{ errors.mobileNumber }}</p>
@@ -675,10 +811,11 @@ const submitRegistration = async () => {
                 <!-- Nationality and Civil Status -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div class="relative group">
+                    <label for="nationality" class="text-sm font-medium text-dark-blue mb-1 block">
+                      Nationality
+                    </label>
                     <div class="relative">
-                      <div
-                        class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                      >
+                      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <font-awesome-icon
                           :icon="['fas', 'flag']"
                           class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
@@ -688,22 +825,10 @@ const submitRegistration = async () => {
                         id="nationality"
                         v-model="formData.nationality"
                         type="text"
-                        class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
-                        placeholder=" "
+                        class="w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                        placeholder="Your nationality"
                       />
-                      <label
-                        for="nationality"
-                        class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
-                      >
-                        Your nationality
-                      </label>
                     </div>
-                    <label
-                      for="nationality"
-                      class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
-                    >
-                      Nationality
-                    </label>
                   </div>
 
                   <div class="relative group">
@@ -711,9 +836,7 @@ const submitRegistration = async () => {
                       Civil Status
                     </label>
                     <div class="relative">
-                      <div
-                        class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                      >
+                      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <font-awesome-icon :icon="['fas', 'heart']" class="h-5 w-5 text-gray" />
                       </div>
                       <select
@@ -726,9 +849,7 @@ const submitRegistration = async () => {
                         <option value="Divorced">Divorced</option>
                         <option value="Widowed">Widowed</option>
                       </select>
-                      <div
-                        class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none"
-                      >
+                      <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
                         <font-awesome-icon
                           :icon="['fas', 'chevron-down']"
                           class="h-4 w-4 text-gray"
@@ -754,8 +875,10 @@ const submitRegistration = async () => {
                         id="dateOfBirth"
                         v-model="formData.dateOfBirth"
                         type="date"
+                        @blur="validatePersonalInfo"
                         class="w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
                         :class="[errors.dateOfBirth ? 'border-red text-red' : 'border-gray-300']"
+                        :max="new Date().toISOString().split('T')[0]"
                       />
                     </div>
                     <label
@@ -964,169 +1087,145 @@ const submitRegistration = async () => {
               </h2>
               <p class="text-gray-600 mb-8">Where do you live?</p>
 
-              <!-- House Number and Street -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- House No / Block / Lot -->
                 <div class="relative group">
+                  <label for="houseNo" class="text-sm font-medium text-dark-blue mb-1 block">
+                    House No / Block / Lot <span class="text-red">*</span>
+                  </label>
                   <div class="relative">
-                    <div
-                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                    >
-                      <font-awesome-icon
-                        :icon="['fas', 'home']"
-                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
-                      />
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <font-awesome-icon :icon="['fas', 'house']" class="h-5 w-5 text-gray" />
                     </div>
                     <input
                       id="houseNo"
                       v-model="formData.houseNo"
                       type="text"
-                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
-                      placeholder=" "
+                      @blur="validateAddress"
+                      class="w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      :class="[errors.houseNo ? 'border-red text-red' : 'border-gray-300']"
+                      placeholder="House No / Block / Lot"
                     />
-                    <label
-                      for="houseNo"
-                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
-                    >
-                      123
-                    </label>
                   </div>
-                  <label
-                    for="houseNo"
-                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
-                  >
-                    House/Unit Number <span class="text-red">*</span>
-                  </label>
+                  <div v-if="errors.houseNo" class="flex items-center gap-2 mt-1 text-red">
+                    <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                    <p class="text-xs">{{ errors.houseNo }}</p>
+                  </div>
                 </div>
 
-                <div class="relative group md:col-span-2">
+                <!-- Street / Road -->
+                <div class="relative group">
+                  <label for="street" class="text-sm font-medium text-dark-blue mb-1 block">
+                    Street / Road <span class="text-red">*</span>
+                  </label>
                   <div class="relative">
-                    <div
-                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                    >
-                      <font-awesome-icon
-                        :icon="['fas', 'road']"
-                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
-                      />
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <font-awesome-icon :icon="['fas', 'road']" class="h-5 w-5 text-gray" />
                     </div>
                     <input
                       id="street"
                       v-model="formData.street"
                       type="text"
-                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
-                      placeholder=" "
+                      @blur="validateAddress"
+                      class="w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      :class="[errors.street ? 'border-red text-red' : 'border-gray-300']"
+                      placeholder="Street / Road"
                     />
-                    <label
-                      for="street"
-                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
-                    >
-                      Main Street
-                    </label>
                   </div>
-                  <label
-                    for="street"
-                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
-                  >
-                    Street <span class="text-red">*</span>
-                  </label>
+                  <div v-if="errors.street" class="flex items-center gap-2 mt-1 text-red">
+                    <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                    <p class="text-xs">{{ errors.street }}</p>
+                  </div>
                 </div>
-              </div>
 
-              <!-- City, Province, Zip Code -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <!-- City / Municipality -->
                 <div class="relative group">
+                  <label for="cityMunicipality" class="text-sm font-medium text-dark-blue mb-1 block">
+                    City / Municipality <span class="text-red">*</span>
+                  </label>
                   <div class="relative">
-                    <div
-                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                    >
-                      <font-awesome-icon
-                        :icon="['fas', 'city']"
-                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
-                      />
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <font-awesome-icon :icon="['fas', 'city']" class="h-5 w-5 text-gray" />
                     </div>
                     <input
-                      id="city"
-                      v-model="formData.city"
+                      id="cityMunicipality"
+                      v-model="formData.cityMunicipality"
                       type="text"
-                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
-                      placeholder=" "
+                      @blur="validateAddress"
+                      class="w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      :class="[errors.cityMunicipality ? 'border-red text-red' : 'border-gray-300']"
+                      placeholder="City / Municipality"
                     />
-                    <label
-                      for="city"
-                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
-                    >
-                      City
-                    </label>
                   </div>
-                  <label
-                    for="city"
-                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
-                  >
-                    City <span class="text-red">*</span>
-                  </label>
+                  <div v-if="errors.cityMunicipality" class="flex items-center gap-2 mt-1 text-red">
+                    <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                    <p class="text-xs">{{ errors.cityMunicipality }}</p>
+                  </div>
                 </div>
 
+                <!-- Province -->
                 <div class="relative group">
+                  <label for="province" class="text-sm font-medium text-dark-blue mb-1 block">
+                    Province <span class="text-red">*</span>
+                  </label>
                   <div class="relative">
-                    <div
-                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                    >
-                      <font-awesome-icon
-                        :icon="['fas', 'map']"
-                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
-                      />
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <font-awesome-icon :icon="['fas', 'map']" class="h-5 w-5 text-gray" />
                     </div>
                     <input
                       id="province"
                       v-model="formData.province"
                       type="text"
-                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
-                      placeholder=" "
+                      @blur="validateAddress"
+                      class="w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                      :class="[errors.province ? 'border-red text-red' : 'border-gray-300']"
+                      placeholder="Province"
                     />
-                    <label
-                      for="province"
-                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
-                    >
-                      Province
-                    </label>
                   </div>
-                  <label
-                    for="province"
-                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
-                  >
-                    Province <span class="text-red">*</span>
-                  </label>
+                  <div v-if="errors.province" class="flex items-center gap-2 mt-1 text-red">
+                    <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                    <p class="text-xs">{{ errors.province }}</p>
+                  </div>
                 </div>
+              </div>
 
-                <div class="relative group">
-                  <div class="relative">
-                    <div
-                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-                    >
-                      <font-awesome-icon
-                        :icon="['fas', 'mailbox']"
-                        class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
-                      />
-                    </div>
-                    <input
-                      id="zipCode"
-                      v-model="formData.zipCode"
-                      type="text"
-                      class="peer w-full pl-10 pr-3 py-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
-                      placeholder=" "
+              <!-- ZIP Code -->
+              <div class="relative group mt-6">
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <font-awesome-icon
+                      :icon="['fas', 'mailbox']"
+                      class="h-5 w-5 text-gray group-focus-within:text-dark-blue transition-colors"
                     />
-                    <label
-                      for="zipCode"
-                      class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
-                    >
-                      123456
-                    </label>
                   </div>
+                  <input
+                    id="zipCode"
+                    v-model="formData.zipCode"
+                    type="text"
+                    @blur="validateAddress"
+                    class="peer w-full pl-10 pr-3 py-3.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all bg-gray-50 focus:bg-white"
+                    :class="[errors.zipCode ? 'border-red text-red' : 'border-gray-300']"
+                    placeholder="1234"
+                    maxlength="4"
+                    pattern="[0-9]*"
+                    inputmode="numeric"
+                  />
                   <label
                     for="zipCode"
-                    class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                    class="absolute left-10 top-3.5 text-gray-500 transition-all duration-200 transform -translate-y-7 scale-75 opacity-0 peer-placeholder-shown:opacity-100 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:-translate-y-7 peer-focus:scale-75 peer-focus:opacity-0 cursor-text"
                   >
-                    Zip Code
+                    1234
                   </label>
+                </div>
+                <label
+                  for="zipCode"
+                  class="text-sm font-medium text-dark-blue absolute left-0 -top-6"
+                >
+                  ZIP Code
+                </label>
+                <div v-if="errors.zipCode" class="flex items-center gap-2 mt-1 text-red">
+                  <font-awesome-icon :icon="['fas', 'circle-exclamation']" class="h-4 w-4" />
+                  <p class="text-xs">{{ errors.zipCode }}</p>
                 </div>
               </div>
             </div>

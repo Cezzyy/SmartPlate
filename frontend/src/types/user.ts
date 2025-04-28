@@ -2,10 +2,10 @@ export interface User {
   ltoClientId: string
   lastName: string
   firstName: string
-  middleName: string
-  role: 'user' | 'admin' | 'LTO Officer'
+  middleName?: string
+  role: 'user' | 'admin' | 'Admin' | 'LTO Officer' | 'lto officer' | string
   password?: string
-  status: 'active' | 'inactive' | 'pending'
+  status: 'active' | 'inactive' | 'pending' | string
   email: string
   telephoneNumber?: string
   intAreaCode?: string
@@ -40,6 +40,7 @@ export interface User {
   street?: string
   province?: string
   city?: string
+  cityMunicipality?: string
   barangay?: string
   zipCode?: string
   avatar?: string

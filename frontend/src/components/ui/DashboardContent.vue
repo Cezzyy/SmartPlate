@@ -54,14 +54,16 @@ onMounted(() => {
   // Log current user and ID
   console.log('==== Dashboard mounted ====')
   console.log('Current user:', userStore.fullName)
-  console.log('User ID:', userStore.currentUser?.ltoClientId)
+  
+  // Get user ID with fallback to localStorage
+  const userId = userStore.currentUser?.ltoClientId || localStorage.getItem('userId');
+  console.log('User ID:', userId)
 
   // Debug store state
   registrationFormStore.debugForms()
 
   // Force setting userId to ensure correct forms association
-  if (userStore.currentUser?.ltoClientId) {
-    const userId = userStore.currentUser.ltoClientId
+  if (userId) {
     localStorage.setItem('userId', userId)
     console.log('Set userId in localStorage:', userId)
 
@@ -85,8 +87,8 @@ onMounted(() => {
 
 // Get in-progress vehicle registration forms
 const inProgressForms = computed(() => {
-  // Get the current user's ID from the store - never use localStorage directly here
-  const userId = userStore.currentUser?.ltoClientId || ''
+  // Get the current user's ID from the store or localStorage
+  const userId = userStore.currentUser?.ltoClientId || localStorage.getItem('userId') || '';
 
   console.log('Computing in-progress forms for user:', userId)
 

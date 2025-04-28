@@ -29,7 +29,6 @@ const confirmLogout = () => {
 
 const handleLogout = () => {
   userStore.logout()
-  showLogoutModal.value = false
 }
 
 const cancelLogout = () => {
@@ -38,8 +37,45 @@ const cancelLogout = () => {
 
 // Check if user is admin
 onMounted(() => {
-  if (!userStore.isAdmin) {
-    router.push('/home')
+  // First check if we need to refresh auth state
+  userStore.checkAuth();
+  
+  // Get role directly from localStorage if available
+  let currentRole = localStorage.getItem('userRole') || '';
+  
+  // Try to get from user state if not found in localStorage
+  if (!currentRole && userStore.currentUser) {
+    console.log('User state in AdminView:', userStore.currentUser);
+    
+    const roleValue = userStore.currentUser.role;
+    
+    if (roleValue !== undefined && roleValue !== null) {
+      currentRole = typeof roleValue === 'string' ? roleValue : String(roleValue);
+    }
+  }
+  
+  const normalizedRole = currentRole.toLowerCase();
+  const isAdmin = normalizedRole === 'admin';
+  const isLtoOfficer = normalizedRole === 'lto officer';
+  
+  console.log('Current user role in AdminView:', currentRole, 'normalized:', normalizedRole);
+  
+  // Then verify the user has admin privileges
+  if (!isAdmin) {
+    console.log('Non-admin user attempted to access admin view');
+    
+    // Check if user is LTO Officer (should be directed to lto-portal)
+    if (isLtoOfficer) {
+      console.log('LTO Officer redirected to LTO portal');
+      router.push('/lto-portal');
+      return;
+    }
+    
+    // Otherwise redirect to admin login
+    console.log('Unauthorized user redirected to admin login');
+    router.push('/admin-portal');
+  } else {
+    console.log('Admin authentication verified successfully');
   }
 })
 

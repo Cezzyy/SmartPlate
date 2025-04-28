@@ -19,10 +19,20 @@ if (!userStore.isAuthenticated) {
 }
 
 // User profile data from store
-const user = reactive({ ...userStore.currentUser })
+const user = reactive({ 
+  ...(userStore.currentUser || {
+    ltoClientId: 'Not assigned',
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    email: '',
+    mobileNumber: '',
+    role: 'user'
+  })
+})
 
 // Computed full name - use the store getter
-const fullName = computed(() => userStore.fullName)
+const fullName = computed(() => userStore.fullName || 'User')
 
 // Edit mode state
 const isEditMode = ref(false)
@@ -32,6 +42,11 @@ const activeTab = ref('account')
 
 // Form data for editing
 const formData = reactive({ ...user })
+
+// Update formData when child components change values
+const updateFormData = (newData) => {
+  Object.assign(formData, newData)
+}
 
 // Default avatar image
 const defaultAvatar = '/Land_Transportation_Office.webp'
@@ -146,10 +161,15 @@ const saveChanges = async () => {
   try {
     errors.form = ''
     // Update the user data in the store
-    await userStore.updateUserProfile(formData)
+    const updatedUser = await userStore.updateUserProfile(formData)
 
     // Update local reactive object with the latest user data
-    Object.assign(user, userStore.currentUser)
+    if (updatedUser) {
+      Object.assign(user, updatedUser)
+    } else {
+      console.error('Failed to update user profile: No user data returned')
+      errors.form = 'Failed to update profile. Please try again.'
+    }
 
     // Exit edit mode
     isEditMode.value = false
@@ -314,6 +334,7 @@ const goBack = () => {
             :form-data="formData"
             :errors="errors"
             :show-empty-state="true"
+            @update:form-data="updateFormData"
           />
 
           <!-- Contact Information -->
@@ -324,6 +345,7 @@ const goBack = () => {
             :form-data="formData"
             :errors="errors"
             :show-empty-state="true"
+            @update:form-data="updateFormData"
           />
 
           <!-- Personal Information -->
@@ -334,6 +356,7 @@ const goBack = () => {
             :form-data="formData"
             :errors="errors"
             :show-empty-state="true"
+            @update:form-data="updateFormData"
           />
 
           <!-- People Information -->
@@ -344,6 +367,7 @@ const goBack = () => {
             :form-data="formData"
             :errors="errors"
             :show-empty-state="true"
+            @update:form-data="updateFormData"
           />
 
           <!-- Address Information -->
@@ -354,6 +378,7 @@ const goBack = () => {
             :form-data="formData"
             :errors="errors"
             :show-empty-state="true"
+            @update:form-data="updateFormData"
           />
         </div>
       </div>
@@ -367,7 +392,14 @@ const goBack = () => {
           </div>
         </div>
         <div class="p-6">
-          <VehiclesInfo :user="user" :is-edit-mode="isEditMode" :form-data="formData" :show-empty-state="true" />
+          <VehiclesInfo 
+            :user="user" 
+            :is-edit-mode="isEditMode" 
+            :form-data="formData" 
+            :errors="errors"
+            :show-empty-state="true"
+            @update:form-data="updateFormData" 
+          />
         </div>
       </div>
     </main>

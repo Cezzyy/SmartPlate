@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
@@ -9,10 +9,26 @@ const userStore = useUserStore()
 // Form data
 const email = ref('')
 const password = ref('')
+const isLoading = ref(false)
 const errors = ref({
   email: '',
   password: '',
   form: '',
+})
+
+// Check if user is already authenticated with correct role on mount
+onMounted(() => {
+  console.log('AdminLoginView mounted. Checking authentication state...');
+  // Check if user is authenticated and has the right role
+  if (userStore.checkAuth()) {
+    const userRole = userStore.currentUser?.role?.toLowerCase() || ''
+    console.log('User already authenticated with role:', userRole);
+    if (userRole === 'admin') {
+      router.push('/admin')
+    } else if (userRole === 'lto officer') {
+      router.push('/lto-portal')
+    }
+  }
 })
 
 // Validation functions
@@ -42,26 +58,75 @@ const validatePassword = () => {
   return true
 }
 
-const handleAdminLogin = async () => {
+const handleAdminLogin = async (e) => {
+  // If event is passed, prevent default behavior
+  if (e) e.preventDefault()
+  
   try {
     errors.value.form = ''
-
+    isLoading.value = true
+    
+    console.log(`Attempting admin login with email: ${email.value}`);
+    
     // Call the login action from the user store with admin flag
-    await userStore.login(email.value, password.value, true)
-
-    if (userStore.isAdmin) {
+    const user = await userStore.login(email.value, password.value, true)
+    
+    console.log('Login successful, user data:', user);
+    
+    // Normalize role for case-insensitive comparison
+    const userRole = user.role?.toLowerCase() || ''
+    console.log('User role (normalized):', userRole);
+    
+    // Check if user has the correct role and only route if authorized
+    if (userRole === 'admin') {
+      console.log('Admin login successful, redirecting to admin portal')
       router.push('/admin')
-    } else if (userStore.currentUser?.role === 'LTO Officer') {
+    } else if (userRole === 'lto officer') {
+      console.log('LTO Officer login successful, redirecting to LTO portal')
       router.push('/lto-portal')
     } else {
-      errors.value.form = 'Invalid credentials'
+      console.warn('User has invalid role for admin portal:', userRole);
+      // User doesn't have admin or LTO officer role
+      await userStore.logout() // Log them out since they shouldn't access this portal
+      errors.value.form = 'Unauthorized: This portal is only for Administrators and LTO Officers'
     }
   } catch (error) {
-    errors.value.form = error.message || 'Login failed. Please try again.'
+    console.error('Login error:', error);
+    
+    // Check if error is axios error with response data
+    let errorMessage = '';
+    if (error.response) {
+      if (error.response.status === 404) {
+        errorMessage = 'The admin login service is currently unavailable. Please try again later.';
+      } else if (error.response.status === 401) {
+        errorMessage = 'Invalid email or password. Please check your credentials.';
+      } else if (error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
+      } else {
+        errorMessage = `Server error (${error.response.status}). Please try again later.`;
+      }
+    } else if (error.message) {
+      errorMessage = error.message;
+    } else {
+      errorMessage = 'Login failed. Please check your credentials and try again.';
+    }
+    
+    errors.value.form = errorMessage;
+    
+    // Clear the password field after a failed login attempt
+    password.value = '';
+  } finally {
+    isLoading.value = false
   }
+  
+  // Prevent form submission
+  return false
 }
 
-const validateAndLogin = () => {
+const validateAndLogin = (e) => {
+  // If event is passed, prevent default behavior
+  if (e) e.preventDefault()
+  
   errors.value.form = ''
 
   const isEmailValid = validateEmail()
@@ -70,6 +135,9 @@ const validateAndLogin = () => {
   if (isEmailValid && isPasswordValid) {
     handleAdminLogin()
   }
+  
+  // Prevent form submission
+  return false
 }
 </script>
 
@@ -86,10 +154,14 @@ const validateAndLogin = () => {
           <img class="h-16 w-auto" src="/Land_Transportation_Office.webp" alt="LTO Logo" />
         </div>
         <h2 class="text-3xl font-extrabold text-dark-blue">Admin Portal</h2>
-        <p class="mt-2 text-sm text-gray-600">Secure access for administrators only</p>
+        <p class="mt-2 text-sm text-gray-600">Secure access for administrators and LTO officers</p>
       </div>
 
-      <form @submit.prevent="validateAndLogin" class="space-y-6" novalidate>
+      <form 
+        @submit="(e) => { e.preventDefault(); return false; }" 
+        class="space-y-6" 
+        novalidate
+      >
         <!-- Email Field -->
         <div class="space-y-1">
           <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
@@ -105,6 +177,8 @@ const validateAndLogin = () => {
               autocomplete="email"
               required
               @blur="validateEmail"
+              @keydown.enter.prevent="validateAndLogin"
+              :disabled="isLoading"
               class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue transition-all text-base"
               :class="{ 'border-red-500 bg-red-50': errors.email }"
               placeholder="Admin Email"
@@ -130,6 +204,8 @@ const validateAndLogin = () => {
               autocomplete="current-password"
               required
               @blur="validatePassword"
+              @keydown.enter.prevent="validateAndLogin"
+              :disabled="isLoading"
               class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue transition-all text-base"
               :class="{ 'border-red-500 bg-red-50': errors.password }"
               placeholder="Password"
@@ -164,8 +240,10 @@ const validateAndLogin = () => {
         <!-- Login Button -->
         <div class="pt-4">
           <button
-            type="submit"
-            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-base font-medium rounded-lg text-white bg-dark-blue hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-all shadow-md"
+            type="button"
+            @click="(e) => { e.preventDefault(); validateAndLogin(); }"
+            :disabled="isLoading"
+            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-base font-medium rounded-lg text-white bg-dark-blue hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-all shadow-md disabled:opacity-70"
           >
             <span class="absolute left-0 inset-y-0 flex items-center pl-3">
               <font-awesome-icon
@@ -173,7 +251,11 @@ const validateAndLogin = () => {
                 class="h-5 w-5 text-light-blue group-hover:text-blue-100"
               />
             </span>
-            Sign in
+            <span v-if="isLoading">
+              <font-awesome-icon :icon="['fas', 'circle-notch']" class="animate-spin mr-2" />
+              Signing in...
+            </span>
+            <span v-else>Sign in</span>
           </button>
         </div>
 

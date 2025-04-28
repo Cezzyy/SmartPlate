@@ -47,27 +47,35 @@ const toggleSidebar = () => {
 // User profile data from store
 const user = computed<User>(() => {
   const currentUser = userStore.currentUser
-  return currentUser
-    ? {
-        name: `${currentUser.firstName} ${currentUser.lastName}`,
-        email: currentUser.email,
-        avatar: currentUser.avatar || '/Land_Transportation_Office.webp',
-        firstName: currentUser.firstName,
-        lastName: currentUser.lastName,
-      }
-    : {
-        name: 'Guest User',
-        email: 'guest@example.com',
-        avatar: '/Land_Transportation_Office.webp',
-        firstName: 'Guest',
-        lastName: 'User',
-      }
+  
+  // Make sure we handle the case where currentUser might be null or incomplete
+  if (!currentUser) {
+    console.warn('No current user found in store')
+    return {
+      name: 'Guest User',
+      email: 'guest@example.com',
+      avatar: '/Land_Transportation_Office.webp',
+      firstName: 'Guest',
+      lastName: 'User',
+    }
+  }
+  
+  // Use the formatted name from userStore fullName getter
+  const formattedName = userStore.fullName || 'User'
+  
+  return {
+    name: formattedName,
+    email: currentUser.email || 'no-email@example.com',
+    avatar: currentUser.avatar || '/Land_Transportation_Office.webp',
+    firstName: currentUser.firstName || '',
+    lastName: currentUser.lastName || '',
+  }
 })
 
 // Format user's full name
 const userName = computed(() => {
-  const currentUser = userStore.currentUser
-  return currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Guest User'
+  // Simply use the fullName getter from the user store
+  return userStore.fullName || 'Guest User'
 })
 
 // Notifications (mock data)

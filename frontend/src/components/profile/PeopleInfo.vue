@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, ref } from 'vue'
+import { defineProps, defineEmits, ref } from 'vue'
 
 defineProps({
   user: {
@@ -14,11 +14,17 @@ defineProps({
     type: Object,
     required: true,
   },
+  errors: {
+    type: Object,
+    default: () => ({}),
+  },
   showEmptyState: {
     type: Boolean,
     default: false,
   },
 })
+
+defineEmits(['update:formData'])
 
 // Tabs for people information sections
 const activeTab = ref('emergency')

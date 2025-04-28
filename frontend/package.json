@@ -19,6 +19,7 @@
     "@fortawesome/vue-fontawesome": "^3.0.8",
     "@tailwindcss/postcss": "^4.0.9",
     "@types/uuid": "^10.0.0",
+    "axios": "^1.9.0",
     "chart.js": "^4.4.8",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",
