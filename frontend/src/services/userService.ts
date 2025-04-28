@@ -306,7 +306,19 @@ const userService = {
    */
   updateProfile: async (userId: string | number, userData: Partial<User | LegacyUser>): Promise<AnyUser> => {
     try {
-      const response = await api.put<AnyUser>(`/users/${userId}`, userData);
+      // Determine if the ID is an LTO client ID (typically starts with 2 and is longer than 10 digits)
+      const isLtoClientId = typeof userId === 'string' && 
+                           userId.length > 10 && 
+                           userId.startsWith('2');
+      
+      // Use the appropriate endpoint based on ID type
+      const endpoint = isLtoClientId 
+                      ? `/users/by-lto/${userId}`  // Use LTO client ID endpoint
+                      : `/users/${userId}`;        // Use regular user ID endpoint
+      
+      console.log(`Using endpoint ${endpoint} for user update`);
+      
+      const response = await api.put<AnyUser>(endpoint, userData);
       return response.data;
     } catch (error) {
       console.error('Update profile error:', error);

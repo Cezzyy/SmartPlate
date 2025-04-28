@@ -19,7 +19,7 @@ if (!userStore.isAuthenticated) {
 }
 
 // User profile data from store
-const user = reactive({ 
+const user = reactive({
   ...(userStore.currentUser || {
     ltoClientId: 'Not assigned',
     firstName: '',
@@ -160,22 +160,50 @@ const saveChanges = async () => {
 
   try {
     errors.form = ''
+
+    // Create a copy of formData to send (avoids reactive issues)
+    const dataToUpdate = { ...formData }
+
+    console.log('Sending profile update data:', dataToUpdate)
+
     // Update the user data in the store
-    const updatedUser = await userStore.updateUserProfile(formData)
+    const updatedUser = await userStore.updateUserProfile(dataToUpdate)
 
     // Update local reactive object with the latest user data
     if (updatedUser) {
-      Object.assign(user, updatedUser)
+      // Create a fresh copy of the updated user to ensure all nested properties are reactive
+      Object.keys(user).forEach(key => {
+        delete user[key]
+      })
+      // Copy all properties from updatedUser to user
+      Object.assign(user, JSON.parse(JSON.stringify(updatedUser)))
+
+      // Also update the formData to match the updated user data
+      Object.keys(formData).forEach(key => {
+        delete formData[key]
+      })
+      Object.assign(formData, JSON.parse(JSON.stringify(updatedUser)))
+
+      // Exit edit mode
+      isEditMode.value = false
+      // Show success message
+      errors.form = 'Profile updated successfully!'
+      setTimeout(() => {
+        errors.form = ''
+      }, 3000)
     } else {
       console.error('Failed to update user profile: No user data returned')
       errors.form = 'Failed to update profile. Please try again.'
     }
-
-    // Exit edit mode
-    isEditMode.value = false
   } catch (error) {
     console.error('Error updating profile:', error)
-    errors.form = 'Failed to update profile. Please try again.'
+
+    // Show specific error message if available
+    if (error && typeof error === 'object' && 'message' in error) {
+      errors.form = `Update failed: ${error.message}`
+    } else {
+      errors.form = 'Failed to update profile. Please try again.'
+    }
   }
 }
 
@@ -392,13 +420,13 @@ const goBack = () => {
           </div>
         </div>
         <div class="p-6">
-          <VehiclesInfo 
-            :user="user" 
-            :is-edit-mode="isEditMode" 
-            :form-data="formData" 
+          <VehiclesInfo
+            :user="user"
+            :is-edit-mode="isEditMode"
+            :form-data="formData"
             :errors="errors"
             :show-empty-state="true"
-            @update:form-data="updateFormData" 
+            @update:form-data="updateFormData"
           />
         </div>
       </div>

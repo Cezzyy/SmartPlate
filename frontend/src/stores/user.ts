@@ -24,7 +24,7 @@ export const useUserStore = defineStore('user', {
     isAdmin(): boolean {
       const role = this.currentUser?.role;
       if (!role) return false;
-      
+
       // Handle both string format and object format (from JSON parsing)
       const roleValue = typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase();
       return roleValue === 'admin';
@@ -32,7 +32,7 @@ export const useUserStore = defineStore('user', {
     isLtoOfficer(): boolean {
       const role = this.currentUser?.role;
       if (!role) return false;
-      
+
       // Handle both string format and object format (from JSON parsing)
       const roleValue = typeof role === 'string' ? role.toLowerCase() : String(role).toLowerCase();
       return roleValue === 'lto officer';
@@ -42,16 +42,16 @@ export const useUserStore = defineStore('user', {
     },
     fullName(): string {
       if (!this.currentUser) return '';
-      
+
       const firstName = this.currentUser.firstName || '';
       const lastName = this.currentUser.lastName || '';
       const middleName = this.currentUser.middleName || '';
-      
+
       if (!firstName && !lastName) return 'User';
-      
+
       // Format as "FirstName M. LastName" if middle name exists, otherwise "FirstName LastName"
       const middleInitial = middleName ? `${middleName.charAt(0)}. ` : '';
-      
+
       return `${firstName} ${middleInitial}${lastName}`.trim();
     },
 
@@ -65,27 +65,27 @@ export const useUserStore = defineStore('user', {
         // Try to get the stored user from localStorage
         const userJson = localStorage.getItem('user');
         const storedUser = userJson ? JSON.parse(userJson) : null;
-        
+
         if (storedUser) {
           console.log('Found authenticated user in localStorage:', storedUser);
-          
+
           // Check if storedUser is already in the correct format or needs mapping
           if (storedUser.currentUser) {
             // This is the store state format, extract the currentUser directly
             this.currentUser = storedUser.currentUser;
             this.isAuthenticated = true;
             this.token = localStorage.getItem('token');
-            
+
             console.log('User data from persisted store:', this.currentUser);
           } else {
             // Map the stored user to ensure proper format
             this.currentUser = this.mapBackendUser(storedUser);
             this.isAuthenticated = true;
             this.token = localStorage.getItem('token');
-            
+
             console.log('User data after mapping:', this.currentUser);
           }
-          
+
           // Verify the token is still valid by checking expiration
           try {
             const token = this.token;
@@ -109,10 +109,10 @@ export const useUserStore = defineStore('user', {
             // but log a warning
             console.warn('Token validation failed, but proceeding with stored credentials');
           }
-          
+
           return true;
         }
-        
+
         // Fall back to getting user from userService if localStorage doesn't have user data
         const backendUser = userService.getCurrentUser();
         if (backendUser) {
@@ -121,35 +121,35 @@ export const useUserStore = defineStore('user', {
           this.currentUser = this.mapBackendUser(backendUser);
           this.isAuthenticated = true;
           this.token = localStorage.getItem('token');
-          
+
           // Update localStorage with mapped user
           localStorage.setItem('user', JSON.stringify(this.currentUser));
-          
+
           console.log('User data after mapping from userService:', this.currentUser);
-          
+
           return true;
         }
       }
-      
+
       return false;
     },
-    
+
     // Maps backend user structure to frontend user structure
     mapBackendUser(backendUser: any): User {
       console.log('Backend user data received for mapping:', backendUser);
-      
+
       // Unwrap response objects to get to the user data
       let dataToMap = { ...backendUser };
-      
+
       // Check for common API response formats and extract actual user data
       if (backendUser.user) {
         dataToMap = { ...dataToMap, ...backendUser.user };
       }
-      
+
       if (backendUser.data) {
         dataToMap = { ...dataToMap, ...backendUser.data };
       }
-      
+
       // Extract basic user information with proper fallbacks
       const ltoClientId = dataToMap.LTO_CLIENT_ID || dataToMap.lto_client_id || '';
       const firstName = dataToMap.FIRST_NAME || dataToMap.first_name || '';
@@ -158,20 +158,20 @@ export const useUserStore = defineStore('user', {
       const email = dataToMap.EMAIL || dataToMap.email || '';
       const role = (dataToMap.ROLE || dataToMap.role || 'user').toLowerCase();
       const status = dataToMap.STATUS || dataToMap.status || 'active';
-      
+
       // Extract nested objects
       const contact = dataToMap.contact || dataToMap.CONTACT || {};
       const address = dataToMap.address || dataToMap.ADDRESS || {};
       const medicalInfo = dataToMap.medical_information || dataToMap.MEDICAL_INFORMATION || {};
       const people = dataToMap.people || dataToMap.PEOPLE || {};
       const personalInfo = dataToMap.personal_information || dataToMap.PERSONAL_INFORMATION || {};
-      
+
       // Log the extracted data for debugging
       console.log('Extracted data:', {
         basic: { ltoClientId, firstName, lastName, email, role },
         nested: { contact, address, medicalInfo, people, personalInfo }
       });
-      
+
       // Create the mapped user object
       const mappedUser: User = {
         // Basic user information
@@ -182,7 +182,7 @@ export const useUserStore = defineStore('user', {
         email,
         role: role === 'admin' ? 'admin' : role === 'lto officer' ? 'LTO Officer' : 'user',
         status,
-        
+
         // Contact information
         telephoneNumber: contact.TELEPHONE_NUMBER || contact.telephone_number || '',
         intAreaCode: contact.INT_AREA_CODE || contact.int_area_code || '',
@@ -190,7 +190,7 @@ export const useUserStore = defineStore('user', {
         emergencyContactName: contact.EMERGENCY_CONTACT_NAME || contact.emergency_contact_name || '',
         emergencyContactNumber: contact.EMERGENCY_CONTACT_NUMBER || contact.emergency_contact_number || '',
         emergencyContactAddress: contact.EMERGENCY_CONTACT_ADDRESS || contact.emergency_contact_address || '',
-        
+
         // Address information
         houseNo: address.HOUSE_NO || address.house_no || '',
         street: address.STREET || address.street || '',
@@ -198,7 +198,7 @@ export const useUserStore = defineStore('user', {
         city: address.CITY_MUNICIPALITY || address.city_municipality || '',
         barangay: address.BARANGAY || address.barangay || '',
         zipCode: address.ZIP_CODE || address.zip_code || '',
-        
+
         // Medical information
         gender: medicalInfo.GENDER || medicalInfo.gender || '',
         bloodType: medicalInfo.BLOOD_TYPE || medicalInfo.blood_type || '',
@@ -208,7 +208,7 @@ export const useUserStore = defineStore('user', {
         weight: medicalInfo.WEIGHT || medicalInfo.weight || undefined,
         height: medicalInfo.HEIGHT || medicalInfo.height || undefined,
         organDonor: medicalInfo.ORGAN_DONOR || medicalInfo.organ_donor || false,
-        
+
         // People information
         employerName: people.EMPLOYER_NAME || people.employer_name || '',
         employerAddress: people.EMPLOYER_ADDRESS || people.employer_address || '',
@@ -218,7 +218,7 @@ export const useUserStore = defineStore('user', {
         fatherFirstName: people.FATHER_FIRST_NAME || people.father_first_name || '',
         fatherLastName: people.FATHER_LAST_NAME || people.father_last_name || '',
         fatherMiddleName: people.FATHER_MIDDLE_NAME || people.father_middle_name || '',
-        
+
         // Personal information
         nationality: personalInfo.NATIONALITY || personalInfo.nationality || '',
         civilStatus: personalInfo.CIVIL_STATUS || personalInfo.civil_status || '',
@@ -227,11 +227,11 @@ export const useUserStore = defineStore('user', {
         educationalAttainment: personalInfo.EDUCATIONAL_ATTAINMENT || personalInfo.educational_attainment || '',
         tin: personalInfo.TIN || personalInfo.tin || ''
       };
-      
+
       console.log('Mapped user data:', mappedUser);
       return mappedUser;
     },
-    
+
     async login(email: string, password: string, isAdminLogin: boolean = false): Promise<User> {
       this.loading = true;
       this.error = null;
@@ -239,37 +239,37 @@ export const useUserStore = defineStore('user', {
       try {
         // Authenticate using the backend API
         const credentials: LoginCredentials = { email, password, isAdminLogin };
-        
+
         // Use the userService for backend authentication
         const response = await userService.login(credentials);
-        
+
         // Map the user from backend format to frontend format
         const mappedUser = this.mapBackendUser(response);
         console.log('Mapped user data after login:', mappedUser);
-        
+
         // Store the mapped user data
         this.currentUser = mappedUser;
         this.isAuthenticated = true;
         this.token = response.token;
-        
+
         // Store the properly mapped user data in localStorage for persistence
         localStorage.setItem('token', this.token);
         localStorage.setItem('user', JSON.stringify(mappedUser));
         localStorage.setItem('userRole', mappedUser.role);
-        
+
         // Store the userId consistently
         if (mappedUser.ltoClientId) {
           localStorage.setItem('userId', mappedUser.ltoClientId);
         }
-        
+
         console.log('Successfully authenticated with backend, user data:', mappedUser);
-        console.log('User state after login:', { 
+        console.log('User state after login:', {
           currentUser: this.currentUser,
           role: this.currentUser?.role,
           isAdmin: this.isAdmin,
           fullName: this.fullName
         });
-        
+
         this.loading = false;
         return mappedUser;
       } catch (error: any) {
@@ -285,7 +285,7 @@ export const useUserStore = defineStore('user', {
       this.registrationCompleted = false
       this.currentStep = 1
       this.formDirty = false
-      
+
       // If initialData contains email, check if it exists
       if (initialData && initialData.email) {
         return new Promise((resolve, reject) => {
@@ -300,7 +300,7 @@ export const useUserStore = defineStore('user', {
             })
         })
       }
-      
+
       return Promise.resolve()
     },
 
@@ -336,7 +336,7 @@ export const useUserStore = defineStore('user', {
           PASSWORD: userData.password || '',
           ROLE: 'user',
           STATUS: 'active',
-          
+
           // Nested objects for extended information
           contact: {
             telephone_number: userData.telephoneNumber || null,
@@ -346,7 +346,7 @@ export const useUserStore = defineStore('user', {
             emergency_contact_number: userData.emergencyContactNumber || null,
             emergency_contact_address: userData.emergencyContactAddress || null
           },
-          
+
           address: {
             house_no: userData.houseNo || null,
             street: userData.street || null,
@@ -355,7 +355,7 @@ export const useUserStore = defineStore('user', {
             barangay: userData.barangay || null,
             zip_code: userData.zipCode || null
           },
-          
+
           medical_information: {
             gender: userData.gender || null,
             blood_type: userData.bloodType || null,
@@ -366,7 +366,7 @@ export const useUserStore = defineStore('user', {
             height: userData.height || null,
             organ_donor: userData.organDonor || false
           },
-          
+
           people: {
             employer_name: userData.employerName || null,
             employer_address: userData.employerAddress || null,
@@ -377,7 +377,7 @@ export const useUserStore = defineStore('user', {
             father_middle_name: userData.fatherMiddleName || null,
             father_last_name: userData.fatherLastName || null
           },
-          
+
           personal_information: {
             nationality: userData.nationality || null,
             civil_status: userData.civilStatus || null,
@@ -389,18 +389,18 @@ export const useUserStore = defineStore('user', {
         };
 
         console.log('Sending complete registration data to server:', registerData);
-        
+
         // Use userService for registration
         const response = await userService.register(registerData);
         console.log('Backend registration successful, response:', response);
-        
+
         // Map the backend response to our format
         const mappedUser = this.mapBackendUser(response);
         console.log('Mapped user after registration:', mappedUser);
-        
+
         // Add the user to our local users array
         this.users.push(mappedUser);
-        
+
         // Store in localStorage for persistence
         localStorage.setItem('user', JSON.stringify(mappedUser));
         const responseAny = response as any;
@@ -409,12 +409,12 @@ export const useUserStore = defineStore('user', {
         } else if (mappedUser.ltoClientId) {
           localStorage.setItem('userId', mappedUser.ltoClientId);
         }
-        
+
         // Set registration as completed and reset registration state
         this.registrationCompleted = true;
         this.isRegistering = false;
         this.registrationData = null;
-        
+
         this.loading = false;
         return mappedUser;
       } catch (error: any) {
@@ -429,38 +429,99 @@ export const useUserStore = defineStore('user', {
       this.currentUser = null;
       this.isAuthenticated = false;
       this.token = null;
-      
+
       // Use the userService to handle clearing localStorage, but don't call the API
       // as it seems to not exist on the backend
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      localStorage.removeItem('userId'); 
+      localStorage.removeItem('userId');
       localStorage.removeItem('userRole');
       localStorage.removeItem('loginType');
       localStorage.removeItem('routeHistory');
-      
+
       // Handle router navigation here
       router.push('/login');
     },
-    
+
     async updateUserProfile(updatedData: Partial<User>): Promise<User | null> {
       if (!this.currentUser) return null;
 
       try {
         console.log('Updating user profile with data:', updatedData);
-        
+
+        // Transform frontend user data to backend format
+        const backendData: any = {
+          // Basic user information
+          first_name: updatedData.firstName,
+          last_name: updatedData.lastName,
+          middle_name: updatedData.middleName,
+          email: updatedData.email,
+
+          // Nested objects for related information
+          contact: {
+            telephone_number: updatedData.telephoneNumber || null,
+            int_area_code: updatedData.intAreaCode || null,
+            mobile_number: updatedData.mobileNumber || null,
+            emergency_contact_name: updatedData.emergencyContactName || null,
+            emergency_contact_number: updatedData.emergencyContactNumber || null,
+            emergency_contact_address: updatedData.emergencyContactAddress || null
+          },
+
+          address: {
+            house_no: updatedData.houseNo || null,
+            street: updatedData.street || null,
+            province: updatedData.province || null,
+            city_municipality: updatedData.city || updatedData.cityMunicipality || null,
+            barangay: updatedData.barangay || null,
+            zip_code: updatedData.zipCode || null
+          },
+
+          medical_information: {
+            gender: updatedData.gender || null,
+            blood_type: updatedData.bloodType || null,
+            complexion: updatedData.complexion || null,
+            eye_color: updatedData.eyeColor || null,
+            hair_color: updatedData.hairColor || null,
+            weight: updatedData.weight || null,
+            height: updatedData.height || null,
+            organ_donor: updatedData.organDonor || null
+          },
+
+          people: {
+            employer_name: updatedData.employerName || null,
+            employer_address: updatedData.employerAddress || null,
+            mother_first_name: updatedData.motherFirstName || null,
+            mother_maiden_name: updatedData.motherLastName || null,
+            mother_middle_name: updatedData.motherMiddleName || null,
+            father_first_name: updatedData.fatherFirstName || null,
+            father_middle_name: updatedData.fatherMiddleName || null,
+            father_last_name: updatedData.fatherLastName || null
+          },
+
+          personal_information: {
+            nationality: updatedData.nationality || null,
+            civil_status: updatedData.civilStatus || null,
+            date_of_birth: updatedData.dateOfBirth || null,
+            place_of_birth: updatedData.placeOfBirth || null,
+            educational_attainment: updatedData.educationalAttainment || null,
+            tin: updatedData.tin || null
+          }
+        };
+
+        console.log('Transformed backend data for API:', backendData);
+
         // Call the backend API to update the user profile
-        const response = await userService.updateProfile(this.currentUser.ltoClientId, updatedData);
-        
+        const response = await userService.updateProfile(this.currentUser.ltoClientId, backendData);
+
         // Map the response to our format
         const updatedUser = this.mapBackendUser(response);
-        
+
         // Update the local store
         this.currentUser = updatedUser;
-        
+
         // Update localStorage with the updated user
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        
+
         console.log('Profile updated successfully:', updatedUser);
         return updatedUser;
       } catch (error) {
@@ -474,10 +535,10 @@ export const useUserStore = defineStore('user', {
       try {
         // Call the backend API to update the user
         const response = await userService.updateProfile(userId, updatedData);
-        
+
         // Map the response to our format
         const updatedUser = this.mapBackendUser(response);
-        
+
         // If the updated user is the currently logged in user, update currentUser also
         if (this.currentUser && this.currentUser.ltoClientId === userId) {
           this.currentUser = updatedUser;
