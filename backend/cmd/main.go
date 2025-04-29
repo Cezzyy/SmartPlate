@@ -215,9 +215,9 @@ func main() {
 	e.GET("/api/scan-log", scanLogHandler.GetAll)
 	e.GET("/api/scan-log/:id", scanLogHandler.GetByID)
 
+	//http://localhost:8081/api/scan-log?page=2&limit=10
 	e.GET("/api/scan-log", scanLogHandler.List)        // paginated listing
-	e.GET("/api/scan-log/:id", scanLogHandler.GetByID)
-	
+	e.GET("/api/scan-log/:id", scanLogHandler.Detail)
 
 	// // Start server
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()

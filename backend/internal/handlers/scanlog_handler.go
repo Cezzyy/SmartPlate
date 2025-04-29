@@ -70,6 +70,72 @@ func (h *ScanLogHandler) GetByID(c echo.Context) error {
     }
     return c.JSON(http.StatusOK, entry)
 }
+//datailes
+func (h *ScanLogHandler) Detail(c echo.Context) error {
+    ctx := c.Request().Context()
+    logID := c.Param("id")
+
+    // 1) Fetch the scan_log row
+    scanEntry, err := h.scanRepo.GetByID(ctx, logID)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+    }
+    if scanEntry == nil {
+        return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
+    }
+
+    // 2) Unwrap the NullString fields safely
+    var ltoID string
+    if scanEntry.LTOClientID.Valid {
+        ltoID = scanEntry.LTOClientID.String
+    } else {
+        // if you expect it always to be set, you could return an error here
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "missing lto_client_id"})
+    }
+
+    var regID string
+    if scanEntry.RegistrationID.Valid {
+        regID = scanEntry.RegistrationID.String
+    } else {
+        // temporary plates might not have a registration_id
+        regID = ""
+    }
+
+    // 3) Pull the user record via unwrapped LTO client ID
+    user, err := h.userRepo.GetByLTOClientID(ltoID)
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+    }
+
+    // 4) Assemble and return just the fields needed
+    return c.JSON(http.StatusOK, map[string]interface{}{
+        "scan_log": map[string]interface{}{
+            "log_id":          scanEntry.LogID,
+            "registration_id": regID,
+            "lto_client_id":   ltoID,
+            "scanned_at":      scanEntry.ScannedAt,
+        },
+        "user": map[string]interface{}{
+            "lto_client_id": user.LTO_CLIENT_ID,
+            "first_name":    user.FIRST_NAME,
+            "last_name":     user.LAST_NAME,
+            "email":         user.EMAIL,
+            // if you only need contact and address subfields:
+            "contact": map[string]interface{}{
+                "mobile_number":    user.Contact.MOBILE_NUMBER,
+                "telephone_number": user.Contact.TELEPHONE_NUMBER,
+            },
+            "address": map[string]interface{}{
+                "house_no":          user.Address.HOUSE_NO,
+                "street":            user.Address.STREET,
+                "barangay":          user.Address.BARANGAY,
+                "city_municipality": user.Address.CITY_MUNICIPALITY,
+                "province":          user.Address.PROVINCE,
+                "zip_code":          user.Address.ZIP_CODE,
+            },
+        },
+    })
+}
 
 // List returns a paginated list of scan_log entries.
 func (h *ScanLogHandler) List(c echo.Context) error {
