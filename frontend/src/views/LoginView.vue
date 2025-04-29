@@ -229,7 +229,7 @@ const validatePasswordMatch = () => {
 const validateAndLogin = (e) => {
   // If event is passed, prevent default behavior
   if (e) e.preventDefault()
-  
+
   clearErrors()
 
   const isEmailValid = validateLoginEmail()
@@ -238,7 +238,7 @@ const validateAndLogin = (e) => {
   if (isEmailValid && isPasswordValid) {
     handleLogin()
   }
-  
+
   // Prevent form submission
   return false
 }
@@ -246,7 +246,7 @@ const validateAndLogin = (e) => {
 const validateAndRegister = (e) => {
   // If event is passed, prevent default behavior
   if (e) e.preventDefault()
-  
+
   clearErrors()
 
   const isEmailValid = validateRegisterEmail()
@@ -256,7 +256,7 @@ const validateAndRegister = (e) => {
   if (isEmailValid && isPasswordValid && isConfirmPasswordValid) {
     handleRegistration()
   }
-  
+
   // Prevent form submission
   return false
 }
@@ -265,7 +265,7 @@ const validateAndRegister = (e) => {
 const handleLogin = async (e) => {
   // If event is passed, prevent default behavior
   if (e) e.preventDefault()
-  
+
   clearErrors()
 
   const isEmailValid = validateLoginEmail()
@@ -275,7 +275,7 @@ const handleLogin = async (e) => {
     try {
       // Show loading state
       errors.form = 'Logging in...'
-      
+
       // Call the login action from the user store which now uses userService
       await userStore.login(email.value, password.value)
 
@@ -284,12 +284,20 @@ const handleLogin = async (e) => {
       router.push(redirectPath.toString())
     } catch (error) {
       console.error('Login error:', error)
-      errors.form = error.response?.data?.error || 'Invalid email or password'
+      
+      // Check for specific account deactivation error message
+      if (error.message && error.message.includes('Account is deactivated')) {
+        errors.form = 'Your account has been deactivated due to certain violations of regulations.'
+      } else {
+        // For other errors
+        errors.form = error.response?.data?.error || error.message || 'Invalid email or password'
+      }
+      
       // Clear password on failed login attempt
       password.value = ''
     }
   }
-  
+
   // Prevent form submission
   return false
 }
@@ -339,9 +347,9 @@ const handleLogin = async (e) => {
             <h1 class="text-3xl font-bold text-dark-blue mb-2">SmartPlate</h1>
             <p class="text-gray text-base">Sign in to access your account!</p>
           </div>
-          <form 
-            @submit="(e) => { e.preventDefault(); return false; }" 
-            class="flex flex-col gap-5" 
+          <form
+            @submit="(e) => { e.preventDefault(); return false; }"
+            class="flex flex-col gap-5"
             novalidate
           >
             <div class="flex flex-col gap-2">
@@ -403,8 +411,8 @@ const handleLogin = async (e) => {
               </div>
             </div>
             <div class="flex justify-end items-center text-sm">
-              <a href="#" class="text-dark-blue font-semibold hover:text-red transition-colors"
-                >Forgot password?</a
+              <router-link to="/forgot-password" class="text-dark-blue font-semibold hover:text-red transition-colors"
+                >Forgot password?</router-link
               >
             </div>
             <div
@@ -444,9 +452,9 @@ const handleLogin = async (e) => {
             <h1 class="text-3xl font-bold text-dark-blue mb-2">Create Account</h1>
             <p class="text-gray text-base">Join SmartPlate now!</p>
           </div>
-          <form 
-            @submit="(e) => { e.preventDefault(); return false; }" 
-            class="flex flex-col gap-5" 
+          <form
+            @submit="(e) => { e.preventDefault(); return false; }"
+            class="flex flex-col gap-5"
             novalidate
           >
             <!-- Email Field -->

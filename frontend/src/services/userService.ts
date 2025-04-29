@@ -11,7 +11,7 @@ export interface User {
   role?: string;
   status?: string;
   password?: string;
-  
+
   // Nested objects
   contact?: {
     contact_id?: number;
@@ -24,7 +24,7 @@ export interface User {
     emergency_contact_relationship?: string;
     emergency_contact_address?: string;
   };
-  
+
   address?: {
     address_id?: number;
     lto_client_id?: string;
@@ -35,7 +35,7 @@ export interface User {
     barangay?: string;
     zip_code?: string;
   };
-  
+
   medical_information?: {
     medical_id?: number;
     lto_client_id?: string;
@@ -48,7 +48,7 @@ export interface User {
     height?: number;
     organ_donor?: boolean;
   };
-  
+
   people?: {
     people_id?: number;
     lto_client_id?: string;
@@ -62,7 +62,7 @@ export interface User {
     father_last_name?: string;
     address?: string;
   };
-  
+
   personal_information?: {
     personal_id?: number;
     lto_client_id?: string;
@@ -94,6 +94,16 @@ export interface LoginCredentials {
   email: string;
   password: string;
   isAdminLogin?: boolean;
+}
+
+// Password reset interfaces
+export interface PasswordResetRequest {
+  email: string;
+}
+
+export interface PasswordResetSubmission {
+  token: string;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -135,26 +145,34 @@ const userService = {
     try {
       // Use different endpoints for admin login vs regular login
       const endpoint = credentials.isAdminLogin ? '/admin/login' : '/login';
-      
+
       // Remove isAdminLogin from credentials before sending to backend
       const { isAdminLogin, ...loginData } = credentials;
-      
+
       console.log(`Attempting ${isAdminLogin ? 'admin' : 'regular'} login with endpoint: ${endpoint}`);
-      
+
       const response = await api.post<LoginResponse>(endpoint, loginData);
       console.log(`${isAdminLogin ? 'Admin' : 'User'} login API response:`, response.data);
-      
+
       // Normalize the user data role field
       const userData = response.data.user as any;
       let role = '';
-      
-      // Extract role from the user data
+      let status = '';
+
+      // Extract role and status from the user data
       if (userData.role) {
         role = userData.role.toLowerCase();
+        status = (userData.status || '').toLowerCase();
       } else if (userData.ROLE) {
         role = userData.ROLE.toLowerCase();
+        status = (userData.STATUS || '').toLowerCase();
       }
-      
+
+      // Check if the user account is inactive
+      if (status === 'inactive') {
+        throw new Error('Account is deactivated. Please contact an administrator.');
+      }
+
       // If this is an admin login, verify role
       if (isAdminLogin) {
         // Check if user has admin or LTO officer role
@@ -162,18 +180,18 @@ const userService = {
           throw new Error('Unauthorized: This portal is only for Administrators and LTO Officers');
         }
       }
-      
+
       // Standardize the role format in the response
       if (userData.role !== undefined) {
         userData.role = role === 'admin' ? 'admin' : role === 'lto officer' ? 'LTO Officer' : 'user';
       } else if (userData.ROLE !== undefined) {
         userData.ROLE = role === 'admin' ? 'admin' : role === 'lto officer' ? 'LTO Officer' : 'user';
       }
-      
+
       // Store token in localStorage
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
-        
+
         // For admin login, mark the login type
         if (isAdminLogin) {
           localStorage.setItem('loginType', 'admin');
@@ -181,19 +199,19 @@ const userService = {
           localStorage.removeItem('loginType');
         }
       }
-      
+
       // We'll let the Pinia store handle mapping and storing the user data
       return response.data;
     } catch (error) {
       console.error('Login error:', error);
-      
+
       // Add additional context for admin login errors
       if (credentials.isAdminLogin && (error as any).response?.status === 404) {
         const enhancedError = new Error('Admin login service is currently unavailable');
         (enhancedError as any).response = (error as any).response;
         throw enhancedError;
       }
-      
+
       throw error;
     }
   },
@@ -207,7 +225,7 @@ const userService = {
     try {
       // Try to get a user with this email
       await api.get(`/users/email/${email}`);
-      
+
       // If we get here, the email exists - reject with an appropriate error
       const error = new Error('Email already exists');
       (error as any).response = {
@@ -220,7 +238,7 @@ const userService = {
       if (error.response && error.response.status === 404) {
         return; // Email doesn't exist, so it's available
       }
-      
+
       // For any other error, rethrow
       throw error;
     }
@@ -272,7 +290,7 @@ const userService = {
     try {
       // Check if we're using the legacy format (uppercase fields)
       const isLegacyFormat = 'FIRST_NAME' in userData;
-      
+
       let data;
       if (isLegacyFormat) {
         // Use legacy format (uppercase fields)
@@ -286,11 +304,11 @@ const userService = {
           status: newData.status || 'active'
         };
       }
-      
+
       console.log('Sending registration data to server:', data);
       const response = await api.post<AnyUser>('/users', data);
       console.log('Registration API response:', response.data);
-      
+
       return response.data;
     } catch (error) {
       console.error('Registration error:', error);
@@ -307,21 +325,90 @@ const userService = {
   updateProfile: async (userId: string | number, userData: Partial<User | LegacyUser>): Promise<AnyUser> => {
     try {
       // Determine if the ID is an LTO client ID (typically starts with 2 and is longer than 10 digits)
-      const isLtoClientId = typeof userId === 'string' && 
-                           userId.length > 10 && 
+      const isLtoClientId = typeof userId === 'string' &&
+                           userId.length > 10 &&
                            userId.startsWith('2');
-      
+
       // Use the appropriate endpoint based on ID type
-      const endpoint = isLtoClientId 
+      const endpoint = isLtoClientId
                       ? `/users/by-lto/${userId}`  // Use LTO client ID endpoint
                       : `/users/${userId}`;        // Use regular user ID endpoint
-      
+
       console.log(`Using endpoint ${endpoint} for user update`);
+      console.log('Sending update data to backend:', userData);
+
+      // Transform the data properly depending on format needed by backend
+      let transformedData: any = userData;
       
-      const response = await api.put<AnyUser>(endpoint, userData);
+      // Check if we need to transform nested objects for the backend
+      if ('firstName' in userData) {
+        // Frontend format detected, transform to backend format
+        const frontendData = userData as any;
+        
+        transformedData = {
+          // Basic user information
+          first_name: frontendData.firstName,
+          last_name: frontendData.lastName,
+          middle_name: frontendData.middleName,
+          email: frontendData.email,
+          role: frontendData.role,
+          status: frontendData.status,
+          
+          // Nested objects if present
+          contact: frontendData.telephoneNumber || frontendData.mobileNumber ? {
+            telephone_number: frontendData.telephoneNumber || null,
+            mobile_number: frontendData.mobileNumber || null,
+          } : undefined,
+          
+          address: frontendData.houseNo || frontendData.street || frontendData.city || frontendData.province || frontendData.barangay || frontendData.zipCode ? {
+            house_no: frontendData.houseNo || null,
+            street: frontendData.street || null,
+            province: frontendData.province || null,
+            city_municipality: frontendData.city || null,
+            barangay: frontendData.barangay || null,
+            zip_code: frontendData.zipCode || null,
+          } : undefined,
+          
+          medical_information: frontendData.gender || frontendData.bloodType || frontendData.eyeColor || frontendData.hairColor || frontendData.weight || frontendData.height ? {
+            gender: frontendData.gender || null,
+            blood_type: frontendData.bloodType || null,
+            eye_color: frontendData.eyeColor || null,
+            hair_color: frontendData.hairColor || null,
+            weight: frontendData.weight || null,
+            height: frontendData.height || null,
+          } : undefined,
+          
+          personal_information: frontendData.nationality || frontendData.civilStatus || frontendData.dateOfBirth || frontendData.placeOfBirth || frontendData.tin ? {
+            nationality: frontendData.nationality || null,
+            civil_status: frontendData.civilStatus || null,
+            date_of_birth: frontendData.dateOfBirth || null,
+            place_of_birth: frontendData.placeOfBirth || null,
+            tin: frontendData.tin || null,
+          } : undefined,
+        };
+      }
+      
+      console.log('Transformed data for API:', transformedData);
+      
+      const response = await api.put<AnyUser>(endpoint, transformedData);
+      console.log('Update response from backend:', response.data);
       return response.data;
     } catch (error) {
       console.error('Update profile error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all users for admin panel
+   * @returns Promise with array of all users
+   */
+  getAllUsers: async (): Promise<AnyUser[]> => {
+    try {
+      const response = await api.get<AnyUser[]>('/users');
+      return response.data;
+    } catch (error) {
+      console.error('Get all users error:', error);
       throw error;
     }
   },
@@ -340,4 +427,4 @@ const userService = {
   }
 };
 
-export default userService; 
+export default userService;

@@ -197,40 +197,59 @@ func generateAdminJWTToken(user models.User) (string, error) {
 	return tokenString, nil
 }
 
-// func (h *AuthHandler) RequestPasswordReset(c echo.Context) error {
-// 	// 1) bind input (e.g. JSON with { "email": "user@example.com" })
-// 	var req struct {
-// 		Email string `json:"email"`
-// 	}
-// 	if err := c.Bind(&req); err != nil {
-// 		return echo.NewHTTPError(http.StatusBadRequest, "invalid payload")
-// 	}
+func (h *AuthHandler) RequestPasswordReset(c echo.Context) error {
+	// 1) bind input (e.g. JSON with { "email": "user@example.com" })
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.Bind(&req); err != nil {
+		log.Printf("Password reset error - invalid payload: %v", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid payload")
+	}
 
-// 	// 2) look up user by email
-// 	user, err := h.userRepo.GetByEmail(req.Email)
-// 	if err == sql.ErrNoRows {
-// 		return c.NoContent(http.StatusAccepted)
-// 	} else if err != nil {
-// 		return err
-// 	}
+	log.Printf("Received password reset request for email: %s", req.Email)
 
-// 	// 3) create a token row in password_reset_token
-// 	token := generateSecureToken()
-// 	expires := time.Now().Add(1 * time.Hour)
-// 	if err := h.tokenRepo.Create(&models.PasswordResetToken{
-// 		LTOClientID: user.LTO_CLIENT_ID,
-// 		Token:       token,
-// 		ExpiresAt:   expires,
-// 	}); err != nil {
-// 		return err
-// 	}
+	// 2) look up user by email
+	user, err := h.userRepo.GetByEmail(req.Email)
+	if err == sql.ErrNoRows {
+		log.Printf("Password reset requested for non-existent email: %s", req.Email)
+		// Don't expose if email exists or not - security best practice
+		return c.NoContent(http.StatusAccepted)
+	} else if err != nil {
+		log.Printf("Password reset error - user lookup: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Server error during password reset",
+		})
+	}
 
-// 	// 4) send the email (fire-and-forget or handle error)
-// 	go func() {
-// 		if err := email.SendResetEmail(user.EMAIL, token); err != nil {
-// 			log.Printf("email error: %v", err)
-// 		}
-// 	}()
+	// 3) create a token row in password_reset_token
+	token := generateSecureToken()
+	expires := time.Now().Add(1 * time.Hour)
+
+	// Log before attempting to create token
+	log.Printf("Creating password reset token for user ID: %s", user.LTO_CLIENT_ID)
+
+	resetToken := &models.PasswordResetToken{
+		LTOClientID: user.LTO_CLIENT_ID,
+		Token:       token,
+		ExpiresAt:   expires,
+	}
+
+	if err := h.tokenRepo.Create(resetToken); err != nil {
+		log.Printf("Password reset error - token creation: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Server error during password reset",
+		})
+	}
+
+	// 4) send the email (now handled synchronously to catch errors)
+	log.Printf("Sending password reset email to: %s", user.EMAIL)
+	if err := email.SendResetEmail(user.EMAIL, token); err != nil {
+		log.Printf("Email error during password reset: %v", err)
+		// Continue despite email error - we'll still return success
+	}
+
+	log.Printf("Password reset request completed successfully for: %s", req.Email)
 
 // 	// 5) always respond "accepted" so attackers can't enumerate
 // 	return c.NoContent(http.StatusAccepted)

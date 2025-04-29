@@ -134,6 +134,32 @@ export const useUserStore = defineStore('user', {
       return false;
     },
 
+    // Fetch all users (for admin panel)
+    async fetchAllUsers(): Promise<User[]> {
+      try {
+        this.loading = true;
+        this.error = null;
+        
+        // Call the API to get all users
+        const response = await userService.getAllUsers();
+        
+        // Map each user to our frontend format
+        const mappedUsers = Array.isArray(response) 
+          ? response.map(user => this.mapBackendUser(user))
+          : [];
+        
+        // Update the store
+        this.users = mappedUsers;
+        
+        this.loading = false;
+        return this.users;
+      } catch (error: any) {
+        this.error = error.message || 'Failed to fetch users';
+        this.loading = false;
+        throw error;
+      }
+    },
+
     // Maps backend user structure to frontend user structure
     mapBackendUser(backendUser: any): User {
       console.log('Backend user data received for mapping:', backendUser);
@@ -531,13 +557,28 @@ export const useUserStore = defineStore('user', {
     },
 
     // Action for updating any user (not just current user)
-    async updateUser(userId: string, updatedData: Partial<User>): Promise<User | null> {
+    async updateUser(userId: string, updatedData: Partial<User>, refreshAllUsers: boolean = false): Promise<User | null> {
       try {
+        console.log('Updating user with ID:', userId);
+        console.log('Update data:', updatedData);
+        
         // Call the backend API to update the user
         const response = await userService.updateProfile(userId, updatedData);
 
         // Map the response to our format
         const updatedUser = this.mapBackendUser(response);
+        console.log('User updated successfully:', updatedUser);
+
+        // If refreshAllUsers is true, fetch all users again
+        if (refreshAllUsers) {
+          await this.fetchAllUsers();
+        } else {
+          // Otherwise, just update the specific user in the users array
+          const userIndex = this.users.findIndex(user => user.ltoClientId === userId);
+          if (userIndex !== -1) {
+            this.users[userIndex] = updatedUser;
+          }
+        }
 
         // If the updated user is the currently logged in user, update currentUser also
         if (this.currentUser && this.currentUser.ltoClientId === userId) {

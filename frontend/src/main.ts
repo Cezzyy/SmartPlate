@@ -88,6 +88,7 @@ import {
   faSpinner,
   faQuestionCircle,
   faCircleInfo,
+  faBan,  
 } from '@fortawesome/free-solid-svg-icons'
 import { faGoogle } from '@fortawesome/free-brands-svg-icons'
 
@@ -171,6 +172,7 @@ const icons: IconDefinition[] = [
   faSpinner,
   faQuestionCircle,
   faCircleInfo,
+  faBan,
 ]
 library.add(...icons)
 

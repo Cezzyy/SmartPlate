@@ -61,8 +61,10 @@ func main() {
 	// tokenRepo := repository.NewPasswordResetTokenRepository(db)
 	authHandler := handlers.NewAuthHandler(userRepo)
 	e.POST("/login", authHandler.Login)
-	// e.POST("/admin/login", authHandler.AdminLogin)
-	// e.POST("/request-password-reset", authHandler.RequestPasswordReset)
+	e.POST("/admin/login", authHandler.AdminLogin)
+	e.POST("/reset-password", authHandler.ResetPassword)
+	e.POST("/request-password-reset", authHandler.RequestPasswordReset)
+	e.POST("/reset-password-confirm", authHandler.ResetPassword)
 
 	// Debug endpoint for checking admin accounts (REMOVE IN PRODUCTION)
 	e.GET("/debug/admin-accounts", func(c echo.Context) error {
