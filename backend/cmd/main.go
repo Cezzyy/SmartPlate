@@ -204,10 +204,20 @@ func main() {
     )
 
 	// scan-log endpoints
-	scanLogHandler := handlers.NewScanLogHandler(scanLogRepo)
+	scanLogHandler := handlers.NewScanLogHandler(
+		scanLogRepo,
+		plateRepo,
+		rfRepo,
+		userRepo,
+		repository.NewVehicleRepository(db),
+	)
 	e.POST("/api/scan-log", scanLogHandler.Create)
 	e.GET("/api/scan-log", scanLogHandler.GetAll)
 	e.GET("/api/scan-log/:id", scanLogHandler.GetByID)
+
+	e.GET("/api/scan-log", scanLogHandler.List)        // paginated listing
+	e.GET("/api/scan-log/:id", scanLogHandler.GetByID)
+	
 
 	// // Start server
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
