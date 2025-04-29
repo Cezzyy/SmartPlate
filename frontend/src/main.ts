@@ -90,6 +90,10 @@ import {
   faCircleInfo,
   faBan,  
   faClipboardCheck,
+  faSync,
+  faChartLine,
+  faChartBar,
+  faChartPie,
 } from '@fortawesome/free-solid-svg-icons'
 import { faGoogle } from '@fortawesome/free-brands-svg-icons'
 
@@ -175,6 +179,10 @@ const icons: IconDefinition[] = [
   faCircleInfo,
   faBan,
   faClipboardCheck,
+  faSync,
+  faChartLine,
+  faChartBar,
+  faChartPie,
 ]
 library.add(...icons)
 
