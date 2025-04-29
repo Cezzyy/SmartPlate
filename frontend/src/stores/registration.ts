@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Registration } from '../types/registration'
-import vehicleRegistrationService from '../services/vehicleRegistrationService'
+import * as vehicleRegistrationService from '../services/vehicleRegistrationService'
 
 // Extended type for API response
 interface ApiRegistration {

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { useUserStore } from './user'
 import type { Vehicle, Plate, Registration, VehicleRegistrationState } from '@/types/vehicle'
-import vehicleRegistrationService from '@/services/vehicleRegistrationService'
+import * as vehicleRegistrationService from '@/services/vehicleRegistrationService'
 
 export interface VehicleRegistrationStoreState extends VehicleRegistrationState {
   registrations: Registration[]

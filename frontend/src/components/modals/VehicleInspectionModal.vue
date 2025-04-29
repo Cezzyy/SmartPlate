@@ -358,13 +358,17 @@ const canGenerateConductionSticker = computed(() => {
           <!-- Additional Vehicle Information Section -->
           <div class="col-span-2">
             <h4 class="text-lg font-bold text-dark-blue mb-4">Complete Vehicle Information</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  MV File Number
-                  <span v-if="requiredFields.includes('mvFileNumber')" class="text-red-600">*</span>
-                </label>
-                <div class="flex flex-col space-y-3">
+            
+            <!-- MV File Number and Region section -->
+            <div class="mb-5 border-b pb-5">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    MV File Number
+                    <span v-if="requiredFields.includes('mvFileNumber')" class="text-red-600">*</span>
+                  </label>
+                  
+                  <!-- Region selector -->
                   <div class="mb-2">
                     <label class="block text-xs font-medium text-gray-500 mb-1">
                       Region for MV File Number
@@ -378,7 +382,9 @@ const canGenerateConductionSticker = computed(() => {
                       </option>
                     </select>
                   </div>
-                  <div class="flex space-x-2">
+                  
+                  <!-- MV File Number with generate button -->
+                  <div class="flex items-center gap-2">
                     <input
                       v-model="additionalData.mvFileNumber"
                       type="text"
@@ -390,7 +396,7 @@ const canGenerateConductionSticker = computed(() => {
                     />
                     <button
                       @click="additionalData.mvFileNumber = generateMVFileNumber()"
-                      class="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
+                      class="whitespace-nowrap px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
                       :disabled="!canGenerateMVFileNumber"
                       :class="{
                         'opacity-50 cursor-not-allowed': !canGenerateMVFileNumber,
@@ -404,46 +410,51 @@ const canGenerateConductionSticker = computed(() => {
                       Generate
                     </button>
                   </div>
-                </div>
-                <p
-                  v-if="validationErrors.mvFileNumber"
-                  class="mt-1 text-sm text-red-600 font-medium"
-                >
-                  {{ validationErrors.mvFileNumber }}
-                </p>
-                <p class="mt-1 text-xs text-gray-500">Format: RR YY XXXXXX</p>
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  Conduction Sticker
-                </label>
-                <div class="flex space-x-2">
-                  <input
-                    v-model="additionalData.conductionSticker"
-                    type="text"
-                    class="flex-grow px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
-                  />
-                  <button
-                    @click="additionalData.conductionSticker = generateConductionSticker()"
-                    class="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
-                    :disabled="!canGenerateConductionSticker"
-                    :class="{
-                      'opacity-50 cursor-not-allowed': !canGenerateConductionSticker,
-                    }"
-                    :title="
-                      !canGenerateConductionSticker
-                        ? 'Can only generate once'
-                        : 'Generate Conduction Sticker'
-                    "
+                  
+                  <p
+                    v-if="validationErrors.mvFileNumber"
+                    class="mt-1 text-sm text-red-600 font-medium"
                   >
-                    Generate
-                  </button>
+                    {{ validationErrors.mvFileNumber }}
+                  </p>
+                  <p class="mt-1 text-xs text-gray-500">Format: RR YY XXXXXX</p>
                 </div>
-                <p class="mt-1 text-xs text-gray-500">Format: CS YY NNNN</p>
-              </div>
 
-              <div class="mb-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Conduction Sticker
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model="additionalData.conductionSticker"
+                      type="text"
+                      class="flex-grow px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
+                    />
+                    <button
+                      @click="additionalData.conductionSticker = generateConductionSticker()"
+                      class="whitespace-nowrap px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-blue transition-colors"
+                      :disabled="!canGenerateConductionSticker"
+                      :class="{
+                        'opacity-50 cursor-not-allowed': !canGenerateConductionSticker,
+                      }"
+                      :title="
+                        !canGenerateConductionSticker
+                          ? 'Can only generate once'
+                          : 'Generate Conduction Sticker'
+                      "
+                    >
+                      Generate
+                    </button>
+                  </div>
+                  <p class="mt-1 text-xs text-gray-500">Format: CS YY NNNN</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Vehicle details fields -->
+            <h5 class="text-md font-semibold text-gray-700 mb-4">Vehicle Details</h5>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2"> Vehicle Series </label>
                 <input
                   v-model="additionalData.vehicleSeries"
@@ -452,7 +463,7 @@ const canGenerateConductionSticker = computed(() => {
                 />
               </div>
 
-              <div class="mb-3">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Body Type
                   <span v-if="requiredFields.includes('bodyType')" class="text-red-600">*</span>
@@ -471,7 +482,35 @@ const canGenerateConductionSticker = computed(() => {
                 </p>
               </div>
 
-              <div class="mb-3">
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Fuel Type
+                  <span v-if="requiredFields.includes('fuelType')" class="text-red-600">*</span>
+                </label>
+                <select
+                  v-model="additionalData.fuelType"
+                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
+                  :class="{
+                    'border-red-500 bg-red-50': validationErrors.fuelType,
+                    'border-gray-300': !validationErrors.fuelType,
+                  }"
+                >
+                  <option value="">Select Fuel Type</option>
+                  <option value="Gasoline">Gasoline</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Electric">Electric</option>
+                  <option value="Hybrid">Hybrid</option>
+                </select>
+                <p v-if="validationErrors.fuelType" class="mt-1 text-sm text-red-600 font-medium">
+                  {{ validationErrors.fuelType }}
+                </p>
+              </div>
+            </div>
+            
+            <!-- Technical specifications -->
+            <h5 class="text-md font-semibold text-gray-700 my-4">Technical Specifications</h5>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Piston Displacement (cc)
                   <span v-if="requiredFields.includes('pistonDisplacement')" class="text-red-600"
@@ -495,7 +534,7 @@ const canGenerateConductionSticker = computed(() => {
                 </p>
               </div>
 
-              <div class="mb-3">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Number of Cylinders
                   <span v-if="requiredFields.includes('numberOfCylinders')" class="text-red-600"
@@ -518,32 +557,12 @@ const canGenerateConductionSticker = computed(() => {
                   {{ validationErrors.numberOfCylinders }}
                 </p>
               </div>
-
-              <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  Fuel Type
-                  <span v-if="requiredFields.includes('fuelType')" class="text-red-600">*</span>
-                </label>
-                <select
-                  v-model="additionalData.fuelType"
-                  class="w-full px-4 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
-                  :class="{
-                    'border-red-500 bg-red-50': validationErrors.fuelType,
-                    'border-gray-300': !validationErrors.fuelType,
-                  }"
-                >
-                  <option value="">Select Fuel Type</option>
-                  <option value="Gasoline">Gasoline</option>
-                  <option value="Diesel">Diesel</option>
-                  <option value="Electric">Electric</option>
-                  <option value="Hybrid">Hybrid</option>
-                </select>
-                <p v-if="validationErrors.fuelType" class="mt-1 text-sm text-red-600 font-medium">
-                  {{ validationErrors.fuelType }}
-                </p>
-              </div>
-
-              <div class="mb-3">
+            </div>
+            
+            <!-- Weight specifications -->
+            <h5 class="text-md font-semibold text-gray-700 my-4">Weight Information</h5>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Gross Vehicle Weight (kg)
                   <span v-if="requiredFields.includes('gvw')" class="text-red-600">*</span>
@@ -562,7 +581,7 @@ const canGenerateConductionSticker = computed(() => {
                 </p>
               </div>
 
-              <div class="mb-3">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Net Weight (kg)
                   <span v-if="requiredFields.includes('netWeight')" class="text-red-600">*</span>
@@ -581,7 +600,7 @@ const canGenerateConductionSticker = computed(() => {
                 </p>
               </div>
 
-              <div class="mb-3">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Shipping Weight (kg)
                 </label>
@@ -591,8 +610,12 @@ const canGenerateConductionSticker = computed(() => {
                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-light-blue focus:border-light-blue text-base transition-colors"
                 />
               </div>
-
-              <div class="mb-3">
+            </div>
+            
+            <!-- Classification and registration information -->
+            <h5 class="text-md font-semibold text-gray-700 my-4">Classification & Registration</h5>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   Usage Classification
                   <span v-if="requiredFields.includes('usageClassification')" class="text-red-600"
@@ -621,7 +644,7 @@ const canGenerateConductionSticker = computed(() => {
                 </p>
               </div>
 
-              <div class="mb-3">
+              <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                   First Registration Date
                 </label>

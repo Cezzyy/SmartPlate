@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useVehicleRegistrationFormStore } from '../stores/vehicleRegistrationForm'
 import { storeToRefs } from 'pinia'
 import ConfirmNavigationModal from '../components/modals/ConfirmNavigationModal.vue'
+import * as vehicleRegistrationService from '@/services/vehicleRegistrationService'
 
 import type { VehicleDocuments } from '@/types/vehicleRegistration'
 
@@ -62,24 +63,42 @@ const checkApplicationStatus = async () => {
   if (formData.value.id && formData.value.status === 'pending') {
     isCheckingStatus.value = true
     try {
-      // Check if the status has been updated in the store's forms array
-      const updatedForm = store.forms.find((form) => form.id === formData.value.id)
-
+      // First ensure the form exists in backend
+      let updatedForm;
+      try {
+        // Try to get the form from backend
+        updatedForm = await vehicleRegistrationService.getRegistrationById(formData.value.id);
+      } catch (error) {
+        console.log('Form not found in backend yet, submitting it first...');
+        // Form doesn't exist in backend yet, submit it first
+        await store.submitRegistration();
+        // Then try to get it again
+        try {
+          updatedForm = await vehicleRegistrationService.getRegistrationById(formData.value.id);
+        } catch (secondError) {
+          console.error('Failed to retrieve form after submission:', secondError);
+          return; // Exit if still can't find form
+        }
+      }
+      
+      // Cast the response to VehicleRegistrationForm
+      updatedForm = updatedForm as unknown as typeof formData.value;
+      
       if (updatedForm && updatedForm.status === 'approved') {
         // Update the current formData with the approved status
-        formData.value.status = 'approved'
+        formData.value.status = 'approved';
 
-        // Only copy appointment details from officer if they exist and our local ones don't
+        // Only copy appointment details from backend if they exist and our local ones don't
         if (updatedForm.appointmentDate && !formData.value.appointmentDate) {
-          formData.value.appointmentDate = updatedForm.appointmentDate
+          formData.value.appointmentDate = updatedForm.appointmentDate;
         }
 
         if (updatedForm.appointmentTime && !formData.value.appointmentTime) {
-          formData.value.appointmentTime = updatedForm.appointmentTime
+          formData.value.appointmentTime = updatedForm.appointmentTime;
         }
 
         if (updatedForm.inspectionCode && !formData.value.inspectionCode) {
-          formData.value.inspectionCode = updatedForm.inspectionCode
+          formData.value.inspectionCode = updatedForm.inspectionCode;
         }
 
         // Make sure we have appointment details
@@ -88,22 +107,25 @@ const checkApplicationStatus = async () => {
           !formData.value.appointmentTime ||
           !formData.value.inspectionCode
         ) {
-          generateAppointment()
+          generateAppointment();
         }
 
-        // Save changes
-        store.setUnsavedChanges(true)
+        // Save changes to backend
+        await vehicleRegistrationService.updateRegistrationForm(formData.value.id, formData.value);
+        
+        // Save changes to store
+        store.setUnsavedChanges(true);
 
-        console.log('Application approved by LTO officer!')
+        console.log('Application approved by LTO officer!');
 
         // Immediately proceed to step 4
-        goToPaymentStep()
+        goToPaymentStep();
       }
     } finally {
       // Small delay to prevent flickering if status changes quickly
       setTimeout(() => {
-        isCheckingStatus.value = false
-      }, 500)
+        isCheckingStatus.value = false;
+      }, 500);
     }
   }
 }
@@ -167,7 +189,7 @@ onUnmounted(() => {
   }
 })
 
-const nextStep = (): void => {
+const nextStep = async (): Promise<void> => {
   let isValid = false
 
   if (currentStep.value === 1) {
@@ -184,9 +206,20 @@ const nextStep = (): void => {
       generateAppointment()
     }
     isValid = validateAppointment()
+    
+    // Submit to backend when going from step 3 to 4
     if (isValid) {
+      // Hardcoded approval for demo purposes
+      // In reality, this would be done by the LTO officer via admin panel
       formData.value.status = 'approved'
-      store.setUnsavedChanges(true)
+      
+      // Save to backend
+      const updated = await store.submitRegistration()
+      
+      if (!updated) {
+        console.error('Failed to update status on backend')
+        return
+      }
     }
   } else if (currentStep.value === 4) {
     // Step 4 doesn't require validation anymore
@@ -214,38 +247,35 @@ const prevStep = () => {
 
 // Back to dashboard
 const backToDashboard = () => {
-  // Mark form as having unsaved changes to ensure it gets saved
-  store.setUnsavedChanges(true)
-
-  // Generate a unique ID if not already set
-  if (!formData.value.id) {
-    formData.value.id = 'REG-' + new Date().getTime()
-  }
-
+  // Just show the navigation modal - don't generate an ID here
+  // as that's already handled in submitRegistration
   showNavigationModal.value = true
 }
 
-const handleNavigationConfirm = () => {
+const handleNavigationConfirm = async () => {
   showNavigationModal.value = false
 
-  // Manually save the current form progress to the store's forms array
-  if (formData.value.id) {
-    // Check if the form already exists in the forms array
-    const existingFormIndex = store.forms.findIndex((form) => form.id === formData.value.id)
-
-    if (existingFormIndex === -1) {
-      // Add to forms array if not found
-      store.forms.push({ ...formData.value })
+  try {
+    // Only save to backend if we already have a valid UUID (not a client-generated ID)
+    if (formData.value.id && 
+        !formData.value.id.startsWith('REG-') && 
+        !formData.value.id.startsWith('REF-')) {
+      console.log('Updating form with valid UUID before navigation:', formData.value.id);
+      await store.submitRegistration();
+    } else if (formData.value.id) {
+      console.log('Form has client-generated ID, saving locally only:', formData.value.id);
+      store.saveCurrentForm();
     } else {
-      // Update existing form
-      store.forms[existingFormIndex] = { ...formData.value }
+      console.log('No form ID, generating reference code for local storage');
+      formData.value.referenceCode = 'REF-' + new Date().getTime();
+      store.saveCurrentForm();
     }
-
-    // Mark as saved
-    store.setUnsavedChanges(false)
+  } catch (error) {
+    console.error('Error saving form before navigation:', error);
   }
 
-  router.push('/home')
+  // Navigate back to home page
+  router.push('/home');
 }
 
 const handleNavigationCancel = () => {

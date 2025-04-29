@@ -248,17 +248,33 @@ const handleRegistrationButtonClick = () => {
 
   if (hasActiveRegistration.value && latestInProgressForm.value) {
     // If there's a pending registration, load that form
-    console.log('Loading existing form:', latestInProgressForm.value.id)
-    registrationFormStore.loadForm(latestInProgressForm.value.id)
-    router.push('/vehicle-registration')
+    console.log('Continuing existing registration form:', latestInProgressForm.value.id)
+    continueRegistration(latestInProgressForm.value.id)
   } else {
-    // Start a new registration
-    console.log('Starting new registration')
-    // Reset the form first
+    // Create a new form and navigate to registration view
+    console.log('Creating new registration form')
+    
+    // Reset the form data in the store
     registrationFormStore.resetForm()
-    // Ensure userId is set correctly
-    registrationFormStore.formData.userId =
-      userStore.currentUser?.ltoClientId || localStorage.getItem('userId') || ''
+    
+    // Set the user ID in the form
+    if (userStore.currentUser?.ltoClientId) {
+      registrationFormStore.formData.userId = userStore.currentUser.ltoClientId
+    }
+    
+    // Generate a reference code instead of ID
+    registrationFormStore.formData.referenceCode = 'REF-' + new Date().getTime()
+    
+    // Set submission date
+    registrationFormStore.formData.submissionDate = new Date().toISOString().split('T')[0]
+    
+    // Default status values
+    registrationFormStore.formData.status = 'pending'
+    registrationFormStore.formData.inspectionStatus = 'pending'
+    registrationFormStore.formData.paymentStatus = 'pending'
+    registrationFormStore.formData.verificationStatus = 'pending'
+    
+    console.log('New form created with reference code:', registrationFormStore.formData.referenceCode)
     router.push('/vehicle-registration')
   }
 }
