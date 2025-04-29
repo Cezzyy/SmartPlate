@@ -89,6 +89,7 @@ import {
   faQuestionCircle,
   faCircleInfo,
   faBan,  
+  faClipboardCheck,
 } from '@fortawesome/free-solid-svg-icons'
 import { faGoogle } from '@fortawesome/free-brands-svg-icons'
 
@@ -173,6 +174,7 @@ const icons: IconDefinition[] = [
   faQuestionCircle,
   faCircleInfo,
   faBan,
+  faClipboardCheck,
 ]
 library.add(...icons)
 
