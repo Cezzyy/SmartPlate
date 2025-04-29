@@ -24,7 +24,7 @@ const props = defineProps({
   },
   barColor: {
     type: String,
-    default: '#4373e6', // blue
+    default: '#4373e6', // blue from theme
   },
   labelColor: {
     type: String,
@@ -32,12 +32,18 @@ const props = defineProps({
   },
   gridLineColor: {
     type: String,
-    default: '#f1f5f9', // light gray for grid lines
+    default: '#f1f5f9', // light gray
   },
   backgroundColor: {
     type: String,
     default: 'white',
   },
+})
+
+// Check if data is empty
+const isEmpty = computed(() => {
+  return !props.vehicleMakes || props.vehicleMakes.length === 0 || 
+    props.vehicleMakes.every(make => make.value === 0)
 })
 
 // Calculate total vehicles
@@ -52,15 +58,30 @@ const percentages = computed(() => {
 
 // Chart data
 const chartData = computed(() => {
+  if (isEmpty.value) {
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          label: 'No vehicle makes data available',
+          data: [0],
+          backgroundColor: '#f1f1f1',
+          borderRadius: 6,
+          borderWidth: 0,
+        },
+      ],
+    }
+  }
+  
   return {
     labels: props.vehicleMakes.map((make) => make.label),
     datasets: [
       {
-        backgroundColor: props.barColor,
-        hoverBackgroundColor: '#172a45',
-        borderRadius: 6,
-        maxBarThickness: 35,
+        label: 'Vehicle Makes',
         data: props.vehicleMakes.map((make) => make.value),
+        backgroundColor: props.barColor,
+        borderRadius: 6,
+        borderWidth: 0,
       },
     ],
   }
@@ -71,18 +92,22 @@ const chartOptions = computed(() => {
   return {
     responsive: true,
     maintainAspectRatio: false,
-    indexAxis: 'y',
-    layout: {
-      padding: {
-        right: 10,
-      },
-    },
     plugins: {
       legend: {
         display: false,
       },
       title: {
-        display: false,
+        display: true,
+        text: isEmpty.value ? 'No Vehicle Makes Data' : props.chartTitle,
+        font: {
+          family: 'Inter, sans-serif',
+          size: 16,
+          weight: 'bold',
+        },
+        color: props.labelColor,
+        padding: {
+          bottom: 20,
+        },
       },
       tooltip: {
         backgroundColor: '#0a192f',
@@ -98,33 +123,18 @@ const chartOptions = computed(() => {
           weight: 'bold',
         },
         padding: 12,
-        displayColors: false,
         cornerRadius: 8,
         callbacks: {
           label: function (context) {
-            const value = context.raw
-            const percentage = Math.round((value / totalVehicles.value) * 100)
-            return `${value} vehicles (${percentage}%)`
+            if (isEmpty.value) return 'No data available'
+            return `${context.raw} vehicles`
           },
         },
       },
     },
     scales: {
       y: {
-        grid: {
-          display: false,
-          drawBorder: false,
-        },
-        ticks: {
-          font: {
-            family: 'Inter, sans-serif',
-            weight: 500,
-            size: 12,
-          },
-          color: props.labelColor,
-        },
-      },
-      x: {
+        beginAtZero: true,
         grid: {
           color: props.gridLineColor,
           drawBorder: false,
@@ -136,6 +146,29 @@ const chartOptions = computed(() => {
           },
           color: props.labelColor,
           precision: 0,
+        },
+        title: {
+          display: true,
+          text: 'Count',
+          color: props.labelColor,
+          font: {
+            family: 'Inter, sans-serif',
+            size: 12,
+            weight: 'normal',
+          },
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+          drawBorder: false,
+        },
+        ticks: {
+          font: {
+            family: 'Inter, sans-serif',
+            size: 12,
+          },
+          color: props.labelColor,
         },
       },
     },
@@ -153,35 +186,7 @@ const sortedMakes = computed(() => {
 </script>
 
 <template>
-  <div class="w-full h-full flex flex-col">
-    <div class="flex-1">
-      <Bar :data="chartData" :options="chartOptions" />
-    </div>
-
-    <div class="mt-6 grid grid-cols-1 gap-2">
-      <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50 shadow-sm">
-        <div class="flex items-center">
-          <div class="h-5 w-5 rounded-md" :style="`background-color: ${barColor}`"></div>
-          <div class="ml-3">
-            <div class="text-sm font-medium text-dark-blue">Most Popular</div>
-            <div class="text-xs text-gray">
-              {{ vehicleMakes.length > 0 ? vehicleMakes[0].label : 'N/A' }}
-            </div>
-          </div>
-        </div>
-        <div class="text-right">
-          <div class="text-xl font-bold text-dark-blue">
-            {{ vehicleMakes.length > 0 ? vehicleMakes[0].value : 0 }}
-          </div>
-          <div class="text-xs text-gray">
-            {{
-              vehicleMakes.length > 0 && totalVehicles > 0
-                ? Math.round((vehicleMakes[0].value / totalVehicles) * 100)
-                : 0
-            }}% of total
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="h-full">
+    <Bar :data="chartData" :options="chartOptions" />
   </div>
 </template>

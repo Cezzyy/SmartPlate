@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted } from 'vue'
 import { useRegistrationStore } from '../../stores/registration'
 import type { Registration } from '../../types/registration'
 
@@ -37,8 +37,49 @@ const sortDesc = ref<boolean>(true)
 const currentPage = ref<number>(1)
 const itemsPerPage = ref<number>(10)
 
-// Get all registrations from the store
+// Get registrations, loading state, and error from the store
 const registrations = computed((): Registration[] => registrationStore.registrations || [])
+const isLoading = computed((): boolean => registrationStore.loading)
+const loadError = computed((): string | null => registrationStore.error)
+
+// Error notification state
+const showErrorNotification = ref<boolean>(false)
+const errorMessage = ref<string>('')
+const errorNotificationProgress = ref<number>(100)
+
+// Method to reload registrations
+const refreshRegistrations = async () => {
+  try {
+    await registrationStore.fetchRegistrations()
+    if (registrationStore.error) {
+      showRefreshError(registrationStore.error)
+    }
+  } catch (err) {
+    console.error('Error refreshing registrations:', err)
+    showRefreshError('Failed to refresh registrations')
+  }
+}
+
+// Show temporary error message
+const showRefreshError = (message: string) => {
+  errorMessage.value = message
+  showErrorNotification.value = true
+  errorNotificationProgress.value = 100
+  
+  // Animate progress bar
+  const interval = setInterval(() => {
+    errorNotificationProgress.value -= 2
+    if (errorNotificationProgress.value <= 0) {
+      clearInterval(interval)
+      showErrorNotification.value = false
+    }
+  }, 100)
+}
+
+// Call this method when component is mounted to ensure fresh data
+onMounted(() => {
+  refreshRegistrations()
+})
 
 // Table headers with sorting capability
 const headers: TableHeader[] = [
@@ -309,11 +350,52 @@ const formatDate = (dateString: string): string => {
       </div>
     </transition>
 
+    <!-- Error Notification -->
+    <transition name="slide-notification">
+      <div
+        v-if="showErrorNotification"
+        class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 shadow-lg rounded-md overflow-hidden max-w-md"
+      >
+        <div class="flex items-center bg-white">
+          <div class="w-2 h-full mr-3 bg-red-500"></div>
+          <div class="flex items-center p-3 pr-4">
+            <div class="flex items-center justify-center w-8 h-8 rounded-full mr-3 bg-red-100">
+              <font-awesome-icon :icon="['fas', 'exclamation']" class="text-sm text-red-500" />
+            </div>
+            <div>
+              <p class="font-medium text-gray-800">{{ errorMessage }}</p>
+            </div>
+            <button
+              @click="showErrorNotification = false"
+              class="ml-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <font-awesome-icon :icon="['fas', 'times']" />
+            </button>
+          </div>
+        </div>
+        <!-- Progress bar -->
+        <div class="bg-gray-100 h-1 w-full">
+          <div
+            class="h-full transition-all duration-300 ease-linear bg-red-500"
+            :style="{ width: errorNotificationProgress + '%' }"
+          ></div>
+        </div>
+      </div>
+    </transition>
+
     <div class="flex justify-between items-center mb-8">
       <div>
         <h2 class="text-2xl font-bold text-dark-blue">Registration Management</h2>
         <p class="text-gray mt-1">Manage vehicle registrations and applications</p>
       </div>
+      <button
+        @click="refreshRegistrations"
+        class="px-4 py-2 bg-light-blue text-white rounded-lg hover:bg-dark-blue transition-colors flex items-center gap-2"
+        :disabled="isLoading"
+      >
+        <font-awesome-icon :icon="['fas', 'sync']" :class="{ 'animate-spin': isLoading }" />
+        <span>Refresh</span>
+      </button>
     </div>
 
     <!-- Filters and Search -->
@@ -377,8 +459,33 @@ const formatDate = (dateString: string): string => {
       </div>
     </div>
 
+    <!-- Loading and Error States -->
+    <div v-if="isLoading" class="bg-white rounded-xl shadow-md p-10 mb-6 flex justify-center items-center">
+      <div class="flex flex-col items-center">
+        <div class="w-12 h-12 border-4 border-light-blue border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-600">Loading registrations...</p>
+      </div>
+    </div>
+
+    <div v-else-if="loadError" class="bg-white rounded-xl shadow-md p-10 mb-6">
+      <div class="flex flex-col items-center text-center">
+        <div class="bg-red-100 p-4 rounded-full mb-4">
+          <font-awesome-icon :icon="['fas', 'exclamation-triangle']" class="text-3xl text-red-500" />
+        </div>
+        <p class="text-lg font-medium text-dark-blue mb-2">Unable to load registrations</p>
+        <p class="text-gray-600 mb-4">{{ loadError }}</p>
+        <button
+          @click="refreshRegistrations"
+          class="px-4 py-2 bg-light-blue text-white rounded-lg hover:bg-dark-blue transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+
     <!-- Registrations Table -->
     <div
+      v-else
       class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden mb-6"
     >
       <div class="overflow-x-auto">

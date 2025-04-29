@@ -6,6 +6,8 @@ import type {
 } from '@/types/vehicleRegistration'
 import { registrationStatusMessages, type RegistrationStatus } from '@/types/vehicleRegistration'
 import { useVehicleRegistrationStore } from './vehicleRegistration'
+import { useUserStore } from './user'
+import * as vehicleRegistrationService from '@/services/vehicleRegistrationService'
 
 // Using imported registration status messages for status display
 const statusMessages = registrationStatusMessages
@@ -313,16 +315,81 @@ export const useVehicleRegistrationFormStore = defineStore('vehicleRegistrationF
     },
 
     async submitRegistration(): Promise<boolean> {
+      this.isSubmitting = true;
       try {
-        this.isSubmitting = true
-        // TODO: Implement API call to submit registration
-        await new Promise((resolve) => setTimeout(resolve, 1000)) // Simulated API call
-        return true
+        console.log('Starting form submission process...');
+        
+        // Make sure the userId is set
+        const userStore = useUserStore();
+        this.formData.userId = userStore.currentUser?.ltoClientId || this.formData.userId;
+        console.log(`Using userId: ${this.formData.userId}`);
+        
+        // Generate a reference code for tracking
+        if (!this.formData.referenceCode) {
+          this.formData.referenceCode = 'REF-' + new Date().getTime();
+          console.log(`Generated reference code: ${this.formData.referenceCode}`);
+        }
+        
+        // Set submission date if not already set
+        if (!this.formData.submissionDate) {
+          this.formData.submissionDate = new Date().toISOString().split('T')[0];
+        }
+        
+        // Set default status if not set
+        if (!this.formData.status) {
+          this.formData.status = 'pending';
+        }
+        
+        // Store original ID to check if it's a client-generated ID or UUID
+        const originalId = this.formData.id;
+        let savedForm;
+        
+        // Check if we're updating an existing form with a valid UUID
+        if (originalId && 
+            !originalId.startsWith('REG-') && 
+            !originalId.startsWith('REF-')) {
+          // This is a valid backend-generated UUID, update the form
+          console.log(`Updating existing form with UUID: ${originalId}`);
+          savedForm = await vehicleRegistrationService.updateRegistrationForm(
+            originalId,
+            this.formData
+          );
+        } else {
+          // This is a new form or has a client-generated ID
+          console.log('Creating new registration form');
+          savedForm = await vehicleRegistrationService.createRegistrationForm(this.formData);
+        }
+        
+        if (savedForm) {
+          console.log('Form saved successfully to backend:', savedForm);
+          
+          // Update form with backend-generated UUID
+          if (savedForm.id) {
+            console.log(`Received backend UUID: ${savedForm.id}`);
+            this.formData.id = savedForm.id as string;
+          } else if ((savedForm as any).registration_form_id) {
+            // Some backend responses use registration_form_id instead of id
+            console.log(`Received backend UUID as registration_form_id: ${(savedForm as any).registration_form_id}`);
+            this.formData.id = (savedForm as any).registration_form_id as string;
+          }
+          
+          // Save to local forms array with the backend UUID
+          this.saveCurrentForm();
+          
+          // Save to localStorage
+          this.saveFormsToStorage();
+          
+          console.log('Registration form submitted successfully with ID:', this.formData.id);
+          return true;
+        } else {
+          console.error('No response received from form submission API');
+          return false;
+        }
       } catch (error) {
-        console.error('Registration submission failed:', error)
-        return false
+        console.error('Error submitting registration form:', error);
+        return false;
       } finally {
-        this.isSubmitting = false
+        this.isSubmitting = false;
       }
     },
 
@@ -413,7 +480,7 @@ export const useVehicleRegistrationFormStore = defineStore('vehicleRegistrationF
     },
 
     getStatusMessage(status: RegistrationStatus): string {
-      return statusMessages[status]
+      return statusMessages[status] || status;
     },
 
     updateRegistrationStatus(newStatus: RegistrationStatus): void {
@@ -510,8 +577,10 @@ export const useVehicleRegistrationFormStore = defineStore('vehicleRegistrationF
     },
 
     saveCurrentForm(): void {
+      // Generate an ID if none exists (temporary client-side ID)
       if (!this.formData.id) {
         this.formData.id = 'REG-' + new Date().getTime()
+        console.log(`Generated temporary client ID: ${this.formData.id}`)
       }
 
       // Make sure we have the current user ID
@@ -699,170 +768,97 @@ export const useVehicleRegistrationFormStore = defineStore('vehicleRegistrationF
 
     // Transfer completed registration to vehicle registration store
     transferToVehicleRegistration(formId: string): boolean {
-      const form = this.forms.find((f) => f.id === formId)
-      if (!form) {
-        console.error(`Cannot transfer registration: Form ${formId} not found`)
-        return false
-      }
-
-      // Only transfer if the registration is completed (payment_completed or completed status)
-      if (form.status !== ('payment_completed' as any) && form.status !== ('completed' as any)) {
-        console.warn(`Not transferring registration ${formId}: Status is ${form.status}`)
+      const formIndex = this.forms.findIndex((form) => form.id === formId)
+      if (formIndex === -1) {
+        console.error(`Form ${formId} not found for transfer`)
         return false
       }
 
       try {
+        // Get form data
+        const form = this.forms[formIndex]
+        
+        // Only transfer if all required steps are completed
+        if (form.status !== 'approved' && form.status !== 'payment_completed' && form.status !== 'completed') {
+          console.warn(`Form ${formId} status is not approved, payment_completed, or completed. Current status: ${form.status}`)
+          console.log('All statuses must be approved before transferring to vehicle registration')
+          return false
+        }
+
+        // Use the registration store to access the vehicle registration API
         const vehicleStore = useVehicleRegistrationStore()
-
-        // Generate a new vehicle ID
-        const newVehicleId =
-          vehicleStore.vehicles.length > 0
-            ? Math.max(...vehicleStore.vehicles.map((v) => v.id)) + 1
-            : 1
-
-        // Create a new vehicle record
-        const newVehicle = {
-          id: newVehicleId,
-          ownerId: form.userId,
-          vehicleCategory: form.vehicleType === '2-Wheel' ? '2 Wheels' : '4 Wheels',
-          mvFileNumber: form.additionalVehicleData?.mvFileNumber || `MV-AUTO-${newVehicleId}`,
-          conductionSticker:
-            form.additionalVehicleData?.conductionSticker || `CS-AUTO-${newVehicleId}`,
-          vehicleMake: form.make,
-          vehicleSeries: form.model,
-          vehicleType: form.vehicleType || 'Sedan',
-          bodyType: form.additionalVehicleData?.bodyType || 'Sedan',
-          yearModel: parseInt(form.year) || new Date().getFullYear(),
+        
+        // Create a vehicle record from the form data
+        const vehicleData = {
+          make: form.make,
+          model: form.model,
+          year: parseInt(form.year),
           engineNumber: form.engineNumber,
           chassisNumber: form.chassisNumber,
-          pistonDisplacement: form.additionalVehicleData?.pistonDisplacement || 0,
-          numberOfCylinders: form.additionalVehicleData?.numberOfCylinders || 0,
-          fuelType: form.additionalVehicleData?.fuelType || 'Gasoline',
           color: form.color,
-          gvw: form.additionalVehicleData?.gvw || 0,
-          netWeight: form.additionalVehicleData?.netWeight || 0,
-          shippingWeight: form.additionalVehicleData?.shippingWeight || 0,
-          usageClassification: form.additionalVehicleData?.usageClassification || 'Private',
-          firstRegistrationDate:
-            form.additionalVehicleData?.firstRegistrationDate ||
-            new Date().toISOString().split('T')[0],
-          lastRenewalDate: new Date().toISOString().split('T')[0],
-          registrationExpiryDate:
-            form.plateExpirationDate ||
-            new Date(new Date().setFullYear(new Date().getFullYear() + 3))
-              .toISOString()
-              .split('T')[0],
-          ltoOfficeCode: form.additionalVehicleData?.ltoOfficeCode || 'NCR-001',
-          classification: form.additionalVehicleData?.classification || 'Private',
-          denomination: form.vehicleType === '2-Wheel' ? 'Motorcycle' : 'Car',
-          orNumber: form.additionalVehicleData?.orNumber || `OR-AUTO-${newVehicleId}`,
-          orDate: form.additionalVehicleData?.orDate || new Date().toISOString().split('T')[0],
+          type: form.vehicleType,
+          userId: form.userId,
+          plateNumber: form.plateNumber || '',
+          status: 'Active',
         }
-
-        // If plate has been issued
-        if (form.plateNumber) {
-          // Create a new plate record
-          const newPlateId =
-            vehicleStore.plates.length > 0
-              ? Math.max(...vehicleStore.plates.map((p) => p.plateId)) + 1
-              : 1
-
-          // Create a plate object with all required properties
-          const newPlate = {
-            id: newPlateId,
-            plateId: newPlateId,
-            vehicleId: newVehicleId,
-            plate_number: form.plateNumber,
-            plate_type: form.plateType || 'Regular',
-            plate_issue_date: form.plateIssueDate || new Date().toISOString().split('T')[0],
-            plate_expiration_date:
-              form.plateExpirationDate ||
-              new Date(new Date().setFullYear(new Date().getFullYear() + 3))
-                .toISOString()
-                .split('T')[0],
-            status: 'Active',
-            region: form.plateRegion || 'NCR',
-            ownerId: form.userId,
-            vehicleCategory: form.vehicleType === '2-Wheel' ? '2 Wheels' : '4 Wheels',
-            mvFileNumber: form.additionalVehicleData?.mvFileNumber || `MV-AUTO-${newVehicleId}`,
-            conductionSticker:
-              form.additionalVehicleData?.conductionSticker || `CS-AUTO-${newVehicleId}`,
-            vehicleMake: form.make,
-            vehicleSeries: form.model,
-            vehicleType: form.vehicleType || 'Sedan',
-            bodyType: form.additionalVehicleData?.bodyType || 'Sedan',
-            yearModel: parseInt(form.year) || new Date().getFullYear(),
-            engineNumber: form.engineNumber,
-            chassisNumber: form.chassisNumber,
-            pistonDisplacement: form.additionalVehicleData?.pistonDisplacement || 0,
-            numberOfCylinders: form.additionalVehicleData?.numberOfCylinders || 0,
-            fuelType: form.additionalVehicleData?.fuelType || 'Gasoline',
-            color: form.color,
-            gvw: form.additionalVehicleData?.gvw || 0,
-            netWeight: form.additionalVehicleData?.netWeight || 0,
-            shippingWeight: form.additionalVehicleData?.shippingWeight || 0,
-            usageClassification: form.additionalVehicleData?.usageClassification || 'Private',
-            firstRegistrationDate:
-              form.additionalVehicleData?.firstRegistrationDate ||
-              new Date().toISOString().split('T')[0],
-            lastRenewalDate: new Date().toISOString().split('T')[0],
-            registrationExpiryDate:
-              form.plateExpirationDate ||
-              new Date(new Date().setFullYear(new Date().getFullYear() + 3))
-                .toISOString()
-                .split('T')[0],
-            ltoOfficeCode: form.additionalVehicleData?.ltoOfficeCode || 'NCR-001',
-            classification: form.additionalVehicleData?.classification || 'Private',
-            denomination: form.vehicleType === '2-Wheel' ? 'Motorcycle' : 'Car',
-            orNumber: form.additionalVehicleData?.orNumber || `OR-AUTO-${newVehicleId}`,
-            orDate: form.additionalVehicleData?.orDate || new Date().toISOString().split('T')[0],
-          }
-
-          // Add the plate to the plates array
-          vehicleStore.plates.push(newPlate as any)
-        }
-
-        // Add the vehicle to the vehicles array
-        vehicleStore.vehicles.push(newVehicle)
-
-        // Create a registration record
-        const newRegistrationId =
-          vehicleStore.registrations.length > 0
-            ? Math.max(...vehicleStore.registrations.map((r) => r.id)) + 1
-            : 1
-
-        const plateId = form.plateNumber
-          ? vehicleStore.plates.find((p) => p.vehicleId === newVehicleId)?.plateId
-          : null
-
-        const newRegistration = {
-          id: newRegistrationId,
-          vehicleId: newVehicleId,
-          plateId: plateId || 0,
-          registrationType: form.registrationType,
-          submissionDate: form.submissionDate,
-          expiryDate:
-            form.plateExpirationDate ||
-            new Date(new Date().setFullYear(new Date().getFullYear() + 3))
-              .toISOString()
-              .split('T')[0],
-          status: 'Approved',
-          documents: [],
-          fees: {
-            registrationFee: 1500,
-            plateIssuanceFee: 450,
-            computerFee: 169,
-            total: 2119,
-          },
-        }
-
-        // Add the registration to the registrations array
-        vehicleStore.registrations.push(newRegistration)
-
-        console.log(`Successfully transferred registration ${formId} to vehicle registration store`)
+        
+        // Send API request to create vehicle and store the response
+        vehicleRegistrationService.createVehicle(vehicleData)
+          .then(async (newVehicle) => {
+            if (!newVehicle) {
+              console.error('Failed to create vehicle record from registration form')
+              return false
+            }
+            
+            console.log('Vehicle created successfully:', newVehicle)
+            
+            // Update form with vehicle ID - handle string or number using type assertion
+            const vehicleId = ((newVehicle as any).id || (newVehicle as any).vehicleId || '').toString()
+            form.vehicleId = vehicleId || ''
+            
+            // If plate number exists, create plate record
+            if (form.plateNumber) {
+              const plateData = {
+                vehicleId: parseInt(vehicleId) || 0, // Convert to number for API
+                plateNumber: form.plateNumber,
+                plateType: form.plateType || 'Private',
+                issueDate: form.plateIssueDate || new Date().toISOString().split('T')[0],
+                expirationDate: form.plateExpirationDate || '',
+                region: form.plateRegion || 'NCR',
+                status: 'Active'
+              }
+              
+              const newPlate = await vehicleRegistrationService.createPlate(vehicleId, plateData)
+              if (newPlate) {
+                console.log('Plate created successfully:', newPlate)
+                // Store plate ID as string with default empty string
+                form.plateId = ((newPlate as any).id || (newPlate as any).plateId || '').toString()
+              }
+            }
+            
+            // Update registration in backend
+            await vehicleRegistrationService.updateRegistrationForm(form.id, form)
+            
+            // Update form status to 'completed' if it's not already
+            if (form.status !== 'completed') {
+              form.status = 'completed'
+              this.saveCurrentForm()
+            }
+            
+            // Refresh vehicle list in store
+            vehicleStore.fetchVehicles()
+            
+            return true
+          })
+          .catch((error) => {
+            console.error('Error transferring registration to vehicle:', error)
+            return false
+          })
+        
+        // Return true to indicate success
         return true
       } catch (error) {
-        console.error('Error transferring registration to vehicle store:', error)
+        console.error('Error in transferToVehicleRegistration:', error)
         return false
       }
     },

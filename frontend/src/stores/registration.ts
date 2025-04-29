@@ -1,76 +1,117 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Registration } from '../types/registration'
+import * as vehicleRegistrationService from '../services/vehicleRegistrationService'
+
+// Extended type for API response
+interface ApiRegistration {
+  id: number
+  vehicleId: number
+  plateId: number
+  registrationType: string
+  submissionDate: string
+  expiryDate: string
+  status: string
+  vehicle?: {
+    vehicleMake?: string
+    vehicleSeries?: string
+    yearModel?: number
+    color?: string
+    engineNumber?: string
+    chassisNumber?: string
+    vehicleType?: string
+    ownerName?: string
+    ownerEmail?: string
+    ownerPhone?: string
+  }
+  plate?: {
+    plate_number?: string
+  }
+  inspectionStatus?: string
+  paymentStatus?: string
+  verificationStatus?: string
+}
 
 export const useRegistrationStore = defineStore('registration', () => {
-  const registrations = ref<Registration[]>([
-    {
-      id: '1',
-      referenceCode: 'REG-001',
-      vehicleInfo: 'Toyota Camry 2021',
-      plateNumber: 'ABC-123',
-      registrationType: 'New',
-      submissionDate: '2023-01-15',
-      expiryDate: '2024-01-15',
-      status: 'Approved',
-      applicantName: 'John Doe',
-      applicantEmail: 'john.doe@example.com',
-      applicantPhone: '+1234567890',
-      make: 'Toyota',
-      model: 'Camry',
-      year: '2021',
-      color: 'Black',
-      engineNumber: 'ENG123456',
-      chassisNumber: 'CHS123456',
-      vehicleType: 'Sedan',
-      inspectionStatus: 'Approved',
-      paymentStatus: 'Approved',
-      verificationStatus: 'Approved',
-      appointmentDate: '2023-01-10',
-      appointmentTime: '10:30 AM',
-    },
-    {
-      id: '2',
-      referenceCode: 'REG-002',
-      vehicleInfo: 'Honda Civic 2020',
-      plateNumber: 'XYZ-789',
-      registrationType: 'Renewal',
-      submissionDate: '2023-02-20',
-      expiryDate: '2024-02-20',
-      status: 'Pending',
-      applicantName: 'Jane Smith',
-      applicantEmail: 'jane.smith@example.com',
-      applicantPhone: '+0987654321',
-      make: 'Honda',
-      model: 'Civic',
-      year: '2020',
-      color: 'Silver',
-      engineNumber: 'ENG654321',
-      chassisNumber: 'CHS654321',
-      vehicleType: 'Sedan',
-      inspectionStatus: 'Pending',
-      paymentStatus: 'Pending',
-      verificationStatus: 'Pending',
-      appointmentDate: '2023-03-15',
-      appointmentTime: '2:00 PM',
-    },
-  ])
+  const registrations = ref<Registration[]>([])
+  const loading = ref<boolean>(false)
+  const error = ref<string | null>(null)
+
+  const fetchRegistrations = async () => {
+    loading.value = true
+    error.value = null
+    try {
+      const data = await vehicleRegistrationService.getAllRegistrations() as ApiRegistration[]
+      
+      // Transform the data from API Response to the local Registration type
+      const transformedData: Registration[] = data.map(reg => {
+        // Get vehicle details if available to construct vehicleInfo
+        const vehicle = reg.vehicle || {}
+        const vehicleInfo = `${vehicle.vehicleMake || ''} ${vehicle.vehicleSeries || ''} ${vehicle.yearModel || ''}`.trim()
+        
+        return {
+          id: reg.id.toString(),
+          referenceCode: `REG-${reg.id}`,
+          vehicleInfo: vehicleInfo || 'Unknown Vehicle',
+          plateNumber: reg.plate?.plate_number || 'No Plate',
+          registrationType: reg.registrationType || 'Unknown',
+          submissionDate: reg.submissionDate || new Date().toISOString(),
+          expiryDate: reg.expiryDate || '',
+          status: reg.status || 'Pending',
+          applicantName: vehicle.ownerName || 'Unknown',
+          applicantEmail: vehicle.ownerEmail || '',
+          applicantPhone: vehicle.ownerPhone || '',
+          make: vehicle.vehicleMake || '',
+          model: vehicle.vehicleSeries || '',
+          year: vehicle.yearModel?.toString() || '',
+          color: vehicle.color || '',
+          engineNumber: vehicle.engineNumber || '',
+          chassisNumber: vehicle.chassisNumber || '',
+          vehicleType: vehicle.vehicleType || '',
+          inspectionStatus: reg.inspectionStatus || 'Pending',
+          paymentStatus: reg.paymentStatus || 'Pending',
+          verificationStatus: reg.verificationStatus || 'Pending',
+        }
+      })
+      
+      registrations.value = transformedData
+    } catch (err) {
+      console.error('Error fetching registrations:', err)
+      error.value = 'Failed to fetch registrations'
+    } finally {
+      loading.value = false
+    }
+  }
 
   const getRegistrationById = (id: string): Registration | undefined => {
     return registrations.value.find((registration) => registration.id === id)
   }
 
-  const updateRegistration = (updatedRegistration: Registration): boolean => {
-    const index = registrations.value.findIndex((r) => r.id === updatedRegistration.id)
-    if (index !== -1) {
-      registrations.value[index] = { ...updatedRegistration }
-      return true
+  const updateRegistration = async (updatedRegistration: Registration): Promise<boolean> => {
+    try {
+      // In a real implementation, you would call the API here
+      // For now, update the local state
+      const index = registrations.value.findIndex((r) => r.id === updatedRegistration.id)
+      if (index !== -1) {
+        registrations.value[index] = { ...updatedRegistration }
+        return true
+      }
+      return false
+    } catch (err) {
+      console.error('Error updating registration:', err)
+      return false
     }
-    return false
   }
+
+  // Fetch registrations when store is initialized
+  // Note: This will be called when the store is first used
+  fetchRegistrations()
 
   return {
     registrations,
+    loading,
+    error,
+    fetchRegistrations,
     getRegistrationById,
     updateRegistration,
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue'
-import { useVehicleRegistrationStore } from '@/stores/vehicleRegistration'
+import { ref, computed, defineAsyncComponent, onMounted } from 'vue'
+import { useAdminDashboardStore } from '@/stores/adminDashboard'
 import type { Plate, Vehicle } from '@/types/vehicle'
 
 interface ExtendedVehicle extends Vehicle {
@@ -42,7 +42,7 @@ const PlateDetailsModal = defineAsyncComponent(
 
 const PlateEditModal = defineAsyncComponent(() => import('@/components/modals/PlateEditModal.vue'))
 
-const vehicleStore = useVehicleRegistrationStore()
+const adminStore = useAdminDashboardStore()
 
 // Search and filter state
 const searchQuery = ref<string>('')
@@ -96,9 +96,9 @@ const setTypeFilter = (value: string) => {
 
 // Get all plates with vehicle information
 const plates = computed((): PlateWithVehicle[] => {
-  return vehicleStore.platesWithVehicleInfo.map((plate) => {
-    const vehicle = vehicleStore.vehicles.find(
-      (v): v is ExtendedVehicle => v.id === plate.vehicleId,
+  return adminStore.platesWithVehicleInfo.map((plate) => {
+    const vehicle = adminStore.vehicles.find(
+      (v): v is ExtendedVehicle => v.id === Number(plate.vehicleId),
     )
 
     const vehicleInfo = vehicle
@@ -279,24 +279,51 @@ const closeEditModal = () => {
   selectedPlate.value = null
 }
 
-const handlePlateUpdate = (updatedPlate: Plate) => {
-  // Reset and show notification
-  notificationProgress.value = 100
-  notificationMessage.value = `Plate ${updatedPlate.plate_number} updated successfully`
-  notificationType.value = 'success'
-  showNotification.value = true
+const handlePlateUpdate = async (updatedPlate: Plate) => {
+  try {
+    // Find the associated vehicle
+    const vehicleId = updatedPlate.vehicleId.toString()
+    
+    // Call the update function from the admin store
+    await adminStore.updatePlate(vehicleId, updatedPlate.plateId.toString(), updatedPlate)
+    
+    // Reset and show notification
+    notificationProgress.value = 100
+    notificationMessage.value = `Plate ${updatedPlate.plate_number} updated successfully`
+    notificationType.value = 'success'
+    showNotification.value = true
 
-  // Animate progress bar
-  let timeLeft = 100
-  const interval = setInterval(() => {
-    timeLeft -= 2
-    notificationProgress.value = timeLeft
+    // Animate progress bar
+    let timeLeft = 100
+    const interval = setInterval(() => {
+      timeLeft -= 2
+      notificationProgress.value = timeLeft
 
-    if (timeLeft <= 0) {
-      clearInterval(interval)
-      showNotification.value = false
-    }
-  }, 100)
+      if (timeLeft <= 0) {
+        clearInterval(interval)
+        showNotification.value = false
+      }
+    }, 100)
+  } catch (error) {
+    console.error('Error updating plate:', error)
+    
+    // Show error notification
+    notificationProgress.value = 100
+    notificationMessage.value = 'Error updating plate'
+    notificationType.value = 'error'
+    showNotification.value = true
+    
+    let timeLeft = 100
+    const interval = setInterval(() => {
+      timeLeft -= 2
+      notificationProgress.value = timeLeft
+
+      if (timeLeft <= 0) {
+        clearInterval(interval)
+        showNotification.value = false
+      }
+    }, 100)
+  }
 }
 
 const headers: TableHeader[] = [
@@ -308,6 +335,15 @@ const headers: TableHeader[] = [
   { text: 'Type', value: 'type', sortable: true },
   { text: 'Actions', value: 'actions', sortable: false },
 ]
+
+// Add onMounted hook to load data
+onMounted(async () => {
+  try {
+    await adminStore.fetchAllData()
+  } catch (error) {
+    console.error('Error loading plate data:', error)
+  }
+})
 </script>
 
 <template>

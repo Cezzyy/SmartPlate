@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useVehicleRegistrationStore } from '@/stores/vehicleRegistration'
+import { useAdminDashboardStore } from '@/stores/adminDashboard'
 import { useUserStore } from '@/stores/user'
 import VehicleDetailsModal from '@/components/modals/VehicleDetailsModal.vue'
 import VehicleEditModal from '@/components/modals/VehicleEditModal.vue'
@@ -31,7 +31,7 @@ interface TableHeader {
 }
 
 // Initialize stores
-const vehicleStore = useVehicleRegistrationStore()
+const adminStore = useAdminDashboardStore()
 const userStore = useUserStore()
 
 // State
@@ -69,10 +69,9 @@ onMounted(() => {
   loadVehicles()
 })
 
-const loadVehicles = () => {
+const loadVehicles = async () => {
   try {
-    // In a real app, this would make an API call
-    // For now, assume vehicles are already loaded in the store
+    await adminStore.fetchAllData()
     updateStatusCounts()
   } catch (error) {
     console.error('Error loading vehicles:', error)
@@ -84,9 +83,9 @@ const updateStatusCounts = () => {
   // Count vehicles by status
   const counts: Record<string, number> = {}
 
-  vehicleStore.vehicles.forEach((vehicle) => {
+  adminStore.vehicles.forEach((vehicle) => {
     // Get registration status from registration records
-    const registration = vehicleStore.getRegistrationByVehicleId(vehicle.id)
+    const registration = adminStore.getRegistrationByVehicleId(vehicle.id)
     const status = registration ? registration.status : 'Unknown'
     counts[status] = (counts[status] || 0) + 1
   })
@@ -94,7 +93,7 @@ const updateStatusCounts = () => {
   // Update filter counts
   statusFilters.value.forEach((filter) => {
     if (filter.value === '') {
-      filter.count = vehicleStore.vehicles.length
+      filter.count = adminStore.vehicles.length
     } else {
       filter.count = counts[filter.value] || 0
     }
@@ -109,9 +108,9 @@ const getOwnerNameById = (ownerId: string) => {
 
 // Map vehicles to display format with owner names and plate numbers
 const vehiclesWithDetails = computed(() => {
-  return vehicleStore.vehicles.map((vehicle) => {
-    const plateDetails = vehicleStore.plates.find((plate) => plate.vehicleId === vehicle.id)
-    const registration = vehicleStore.getRegistrationByVehicleId(vehicle.id)
+  return adminStore.vehicles.map((vehicle) => {
+    const plateDetails = adminStore.plates.find((plate) => plate.vehicleId === vehicle.id)
+    const registration = adminStore.getRegistrationByVehicleId(vehicle.id)
 
     return {
       id: vehicle.id,
@@ -199,21 +198,24 @@ const setStatusFilter = (value: string) => {
 
 const viewVehicleDetails = (vehicle: VehicleDisplay) => {
   // Find the full vehicle details
-  selectedVehicle.value = vehicleStore.vehicles.find((v) => v.id === vehicle.id) || null
+  selectedVehicle.value = adminStore.vehicles.find((v) => v.id === vehicle.id) || null
   showDetailsModal.value = true
 }
 
 const editVehicle = (vehicle: VehicleDisplay) => {
   // Find the full vehicle details
-  selectedVehicle.value = vehicleStore.vehicles.find((v) => v.id === vehicle.id) || null
+  selectedVehicle.value = adminStore.vehicles.find((v) => v.id === vehicle.id) || null
   showEditModal.value = true
 }
 
-const handleVehicleUpdated = (updatedVehicle: any) => {
-  // In a real app, this would call an API
-  // For demo, just reload vehicles
-  console.log('Vehicle updated:', updatedVehicle.id)
-  loadVehicles()
+const handleVehicleUpdated = async (updatedVehicle: any) => {
+  try {
+    await adminStore.updateVehicle(updatedVehicle.id.toString(), updatedVehicle)
+    // Reload the full dataset to ensure everything is in sync
+    await loadVehicles()
+  } catch (error) {
+    console.error('Error updating vehicle:', error)
+  }
 }
 
 const getStatusColor = (status: string) => {

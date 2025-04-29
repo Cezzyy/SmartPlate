@@ -1,300 +1,19 @@
 import { defineStore } from 'pinia'
 import { useUserStore } from './user'
 import type { Vehicle, Plate, Registration, VehicleRegistrationState } from '@/types/vehicle'
-
-// Mock data for vehicles, plates, and registrations
-const mockVehiclesData = [
-  {
-    id: 1,
-    ownerId: 'LTO-2023-78945',
-    vehicleCategory: '4 Wheels',
-    mvFileNumber: 'MV-2024-10001',
-    conductionSticker: 'CS-2024-001',
-    vehicleMake: 'Toyota',
-    vehicleSeries: 'Corolla Altis',
-    vehicleType: 'Sedan',
-    bodyType: 'Sedan',
-    yearModel: 2022,
-    engineNumber: 'ENG-2022-001',
-    chassisNumber: 'CHS-2022-001',
-    pistonDisplacement: 1800,
-    numberOfCylinders: 4,
-    fuelType: 'Gasoline',
-    color: 'White',
-    gvw: 1500,
-    netWeight: 1200,
-    shippingWeight: 1300,
-    usageClassification: 'Private',
-    firstRegistrationDate: '2022-01-15',
-    lastRenewalDate: '2024-01-15',
-    registrationExpiryDate: '2025-01-15',
-    ltoOfficeCode: 'NCR-001',
-    classification: 'Private',
-    denomination: 'Car',
-    orNumber: 'OR-2024-001',
-    orDate: '2024-01-15',
-  },
-  {
-    id: 2,
-    ownerId: 'LTO-2023-78945',
-    vehicleCategory: '2 Wheels',
-    mvFileNumber: 'MV-2024-10002',
-    conductionSticker: 'CS-2024-002',
-    vehicleMake: 'Honda',
-    vehicleSeries: 'CBR',
-    vehicleType: 'Motorcycle',
-    bodyType: 'Motorcycle',
-    yearModel: 2021,
-    engineNumber: 'ENG-2021-002',
-    chassisNumber: 'CHS-2021-002',
-    pistonDisplacement: 150,
-    numberOfCylinders: 1,
-    fuelType: 'Gasoline',
-    color: 'Black',
-    gvw: 300,
-    netWeight: 250,
-    shippingWeight: 270,
-    usageClassification: 'Private',
-    firstRegistrationDate: '2021-08-20',
-    lastRenewalDate: '2024-08-20',
-    registrationExpiryDate: '2025-08-20',
-    ltoOfficeCode: 'NCR-002',
-    classification: 'Private',
-    denomination: 'Motorcycle',
-    orNumber: 'OR-2024-002',
-    orDate: '2024-08-20',
-  },
-  {
-    id: 3,
-    ownerId: 'LTO-2023-78945',
-    vehicleCategory: '4 Wheels',
-    mvFileNumber: 'MV-2025-10003',
-    conductionSticker: 'CS-2025-003',
-    vehicleMake: 'Ford',
-    vehicleSeries: 'Mustang GT',
-    vehicleType: 'Sports Car',
-    bodyType: 'Coupe',
-    yearModel: 2023,
-    engineNumber: 'ENG-2023-003',
-    chassisNumber: 'CHS-2023-003',
-    pistonDisplacement: 5000,
-    numberOfCylinders: 8,
-    fuelType: 'Gasoline',
-    color: 'Red',
-    gvw: 1800,
-    netWeight: 1600,
-    shippingWeight: 1700,
-    usageClassification: 'Private',
-    firstRegistrationDate: '2023-01-05',
-    lastRenewalDate: '2025-01-05',
-    registrationExpiryDate: '2026-01-05',
-    ltoOfficeCode: 'NCR-003',
-    classification: 'Private',
-    denomination: 'Car',
-    orNumber: 'OR-2025-003',
-    orDate: '2025-01-05',
-  },
-  {
-    id: 4,
-    ownerId: 'LTO-2023-12345',
-    vehicleCategory: '4 Wheels',
-    mvFileNumber: 'MV-2024-10004',
-    conductionSticker: 'CS-2024-004',
-    vehicleMake: 'Toyota',
-    vehicleSeries: 'Vios',
-    vehicleType: 'Sedan',
-    bodyType: 'Sedan',
-    yearModel: 2022,
-    engineNumber: 'ENG-2022-004',
-    chassisNumber: 'CHS-2022-004',
-    pistonDisplacement: 1500,
-    numberOfCylinders: 4,
-    fuelType: 'Gasoline',
-    color: 'Silver',
-    gvw: 1400,
-    netWeight: 1100,
-    shippingWeight: 1200,
-    usageClassification: 'Private',
-    firstRegistrationDate: '2022-10-10',
-    lastRenewalDate: '2024-10-10',
-    registrationExpiryDate: '2025-10-10',
-    ltoOfficeCode: 'NCR-004',
-    classification: 'Private',
-    denomination: 'Car',
-    orNumber: 'OR-2024-004',
-    orDate: '2024-10-10',
-  },
-  {
-    id: 5,
-    ownerId: 'LTO-2023-67890',
-    vehicleCategory: '4 Wheels',
-    mvFileNumber: 'MV-2024-10005',
-    conductionSticker: 'CS-2024-005',
-    vehicleMake: 'Mitsubishi',
-    vehicleSeries: 'Montero Sport',
-    vehicleType: 'SUV',
-    bodyType: 'SUV',
-    yearModel: 2023,
-    engineNumber: 'ENG-2023-005',
-    chassisNumber: 'CHS-2023-005',
-    pistonDisplacement: 2400,
-    numberOfCylinders: 4,
-    fuelType: 'Diesel',
-    color: 'Black',
-    gvw: 2200,
-    netWeight: 1900,
-    shippingWeight: 2000,
-    usageClassification: 'Private',
-    firstRegistrationDate: '2023-09-15',
-    lastRenewalDate: '2024-09-15',
-    registrationExpiryDate: '2025-09-15',
-    ltoOfficeCode: 'NCR-005',
-    classification: 'Private',
-    denomination: 'SUV',
-    orNumber: 'OR-2024-005',
-    orDate: '2024-09-15',
-  },
-]
-
-const mockPlatesData = [
-  {
-    plateId: 1,
-    vehicleId: 1,
-    plate_number: 'ABC-123',
-    plate_type: 'Regular',
-    plate_issue_date: '2024-10-15',
-    plate_expiration_date: '2025-10-15',
-    status: 'Active',
-  },
-  {
-    plateId: 2,
-    vehicleId: 2,
-    plate_number: 'XYZ-789',
-    plate_type: 'Temporary',
-    plate_issue_date: '2024-08-20',
-    plate_expiration_date: '2025-08-20',
-    status: 'Active',
-  },
-  {
-    plateId: 3,
-    vehicleId: 3,
-    plate_number: 'DEF-456',
-    plate_type: 'Improvised',
-    plate_issue_date: '2025-01-05',
-    plate_expiration_date: '2026-01-05',
-    status: 'Pending',
-  },
-  {
-    plateId: 4,
-    vehicleId: 4,
-    plate_number: 'GHI-789',
-    plate_type: 'Regular',
-    plate_issue_date: '2024-10-10',
-    plate_expiration_date: '2025-10-10',
-    status: 'Active',
-  },
-  {
-    plateId: 5,
-    vehicleId: 5,
-    plate_number: 'JKL-012',
-    plate_type: 'Regular',
-    plate_issue_date: '2024-09-15',
-    plate_expiration_date: '2025-09-15',
-    status: 'Active',
-  },
-]
-
-const mockRegistrationsData = [
-  {
-    id: 1,
-    vehicleId: 1,
-    plateId: 1,
-    registrationType: 'New Registration',
-    submissionDate: '2024-10-05',
-    expiryDate: '2025-10-05',
-    status: 'Approved',
-    documents: ['Proof of Ownership', 'Insurance Certificate', 'Emission Test'],
-    fees: {
-      registrationFee: 1500,
-      plateIssuanceFee: 450,
-      computerFee: 170,
-      total: 2120,
-    },
-  },
-  {
-    id: 2,
-    vehicleId: 2,
-    plateId: 2,
-    registrationType: 'Renewal',
-    submissionDate: '2024-08-10',
-    expiryDate: '2025-08-10',
-    status: 'Approved',
-    documents: ['Insurance Certificate', 'Emission Test'],
-    fees: {
-      registrationFee: 1500,
-      computerFee: 170,
-      total: 1670,
-    },
-  },
-  {
-    id: 3,
-    vehicleId: 3,
-    plateId: 3,
-    registrationType: 'New Registration',
-    submissionDate: '2025-01-05',
-    expiryDate: '2026-01-05',
-    status: 'Pending',
-    documents: ['Proof of Ownership', 'Insurance Certificate', 'Emission Test'],
-    fees: {
-      registrationFee: 1500,
-      plateIssuanceFee: 450,
-      computerFee: 170,
-      total: 2120,
-    },
-  },
-  {
-    id: 4,
-    vehicleId: 4,
-    plateId: 4,
-    registrationType: 'New Registration',
-    submissionDate: '2024-10-10',
-    expiryDate: '2025-10-10',
-    status: 'Approved',
-    documents: ['Proof of Ownership', 'Insurance Certificate', 'Emission Test'],
-    fees: {
-      registrationFee: 1500,
-      plateIssuanceFee: 450,
-      computerFee: 170,
-      total: 2120,
-    },
-  },
-  {
-    id: 5,
-    vehicleId: 5,
-    plateId: 5,
-    registrationType: 'New Registration',
-    submissionDate: '2024-09-15',
-    expiryDate: '2025-09-15',
-    status: 'Approved',
-    documents: ['Proof of Ownership', 'Insurance Certificate', 'Emission Test'],
-    fees: {
-      registrationFee: 1500,
-      plateIssuanceFee: 450,
-      computerFee: 170,
-      total: 2120,
-    },
-  },
-]
+import * as vehicleRegistrationService from '@/services/vehicleRegistrationService'
 
 export interface VehicleRegistrationStoreState extends VehicleRegistrationState {
   registrations: Registration[]
+  loading: boolean
+  error: string | null
 }
 
 export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
   state: (): VehicleRegistrationStoreState => ({
-    vehicles: [...mockVehiclesData] as Vehicle[],
-    plates: [...mockPlatesData] as Plate[],
-    registrations: [...mockRegistrationsData],
+    vehicles: [],
+    plates: [],
+    registrations: [],
     loading: false,
     error: null,
   }),
@@ -302,10 +21,11 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
   // Getters
   getters: {
     // Get vehicles for the current user
-    userVehicles: (state): Vehicle[] => {
+    userVehicles(state): Vehicle[] {
       const userStore = useUserStore()
+      
       if (!userStore.currentUser) return []
-
+      
       return state.vehicles.filter(
         (vehicle) => vehicle.ownerId === userStore.currentUser?.ltoClientId,
       )
@@ -313,13 +33,27 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
 
     // Get plates for the current user's vehicles
     userPlates(state): Plate[] {
+      const userStore = useUserStore()
+      
+      if (!userStore.currentUser) return []
+      
+      // Get vehicles owned by the current user
       const userVehicleIds = this.userVehicles.map((vehicle) => vehicle.id)
+      
+      // Filter plates that belong to the user's vehicles
       return state.plates.filter((plate) => userVehicleIds.includes(plate.vehicleId))
     },
 
     // Get registrations for the current user's vehicles
     userRegistrations(state): Registration[] {
+      const userStore = useUserStore()
+      
+      if (!userStore.currentUser) return []
+      
+      // Get vehicles owned by the current user
       const userVehicleIds = this.userVehicles.map((vehicle) => vehicle.id)
+      
+      // Filter registrations that belong to the user's vehicles
       return state.registrations.filter((registration) =>
         userVehicleIds.includes(registration.vehicleId),
       )
@@ -327,20 +61,50 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
 
     getVehicleById:
       (state) =>
-      (id: number): Vehicle | undefined => {
-        return state.vehicles.find((vehicle) => vehicle.id === id)
+      async (id: number): Promise<Vehicle | null> => {
+        try {
+          // First check if we already have it in state
+          const cachedVehicle = state.vehicles.find((v) => v.id === id)
+          if (cachedVehicle) return cachedVehicle
+          
+          // If not, fetch it from the backend
+          const vehicle = await vehicleRegistrationService.getVehicleById(id.toString())
+          return vehicle
+        } catch (error) {
+          console.error(`Error fetching vehicle ${id}:`, error)
+          return null
+        }
       },
 
     getPlateById:
       (state) =>
-      (id: number): Plate | undefined => {
-        return state.plates.find((plate) => plate.plateId === id)
+      async (id: number): Promise<Plate | null> => {
+        try {
+          // First check if we already have it in state
+          const cachedPlate = state.plates.find((p) => p.plateId === id)
+          if (cachedPlate) return cachedPlate
+          
+          // If not, this is trickier since we need the vehicle ID
+          // We could implement a different backend endpoint for this
+          // For now, return null if not found in cache
+          return null
+        } catch (error) {
+          console.error(`Error fetching plate ${id}:`, error)
+          return null
+        }
       },
 
     getRegistrationById:
-      (state) =>
-      (id: number): Registration | undefined => {
-        return state.registrations.find((registration) => registration.id === id)
+      () =>
+      async (id: number): Promise<any | null> => {
+        try {
+          // For registrations, we want the full details including related data
+          const registration = await vehicleRegistrationService.getFullRegistrationById(id.toString())
+          return registration
+        } catch (error) {
+          console.error(`Error fetching registration ${id}:`, error)
+          return null
+        }
       },
 
     getPlateByVehicleId:
@@ -454,6 +218,136 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
 
   // Actions
   actions: {
+    // Fetch vehicles from backend
+    async fetchVehicles() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        const userStore = useUserStore();
+        const userId = userStore.currentUser?.ltoClientId;
+        
+        if (userStore.isAdmin) {
+          // Admin fetches all vehicles
+          const vehicles = await vehicleRegistrationService.getAllVehicles()
+          this.vehicles = vehicles || []
+          console.log(`Admin: loaded ${this.vehicles.length} vehicles`)
+        } else if (userId) {
+          // User fetches only their vehicles
+          console.log(`Fetching vehicles for user ID: ${userId}`)
+          const vehicles = await vehicleRegistrationService.getVehiclesByUserId(userId)
+          this.vehicles = vehicles || []
+          console.log(`User: loaded ${this.vehicles.length} vehicles`)
+        } else {
+          console.warn('No client ID found for current user')
+          this.vehicles = []
+        }
+      } catch (error: any) {
+        console.error('Error fetching vehicles:', error)
+        this.error = error.message || 'Failed to fetch vehicles'
+        this.vehicles = []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // Fetch plates from backend
+    async fetchPlates() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        if (useUserStore().isAdmin) {
+          // Admin fetches all plates
+          const plates = await vehicleRegistrationService.getAllPlates()
+          this.plates = plates || []
+          console.log(`Admin: loaded ${this.plates.length} plates`)
+        } else if (this.vehicles.length > 0) {
+          // Regular user: fetch plates for each of their vehicles
+          const plates: Plate[] = []
+          
+          // Try to fetch plates for each vehicle
+          for (const vehicle of this.userVehicles) {
+            try {
+              const vehiclePlates = await vehicleRegistrationService.getPlatesByVehicleId(vehicle.id.toString())
+              if (vehiclePlates && vehiclePlates.length > 0) {
+                plates.push(...vehiclePlates)
+              }
+            } catch (err) {
+              console.warn(`Couldn't fetch plates for vehicle ${vehicle.id}:`, err)
+            }
+          }
+          
+          this.plates = plates
+          console.log(`User: loaded ${this.plates.length} plates`)
+        } else {
+          console.warn('No vehicles found to fetch plates for')
+          this.plates = []
+        }
+      } catch (error: any) {
+        console.error('Error fetching plates:', error)
+        this.error = error.message || 'Failed to fetch plates'
+        this.plates = []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // Fetch registrations from backend
+    async fetchRegistrations() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        if (useUserStore().isAdmin) {
+          // Admin fetches all registrations
+          const registrations = await vehicleRegistrationService.getAllRegistrations()
+          this.registrations = registrations || []
+          console.log(`Admin: loaded ${this.registrations.length} registrations`)
+        } else if (useUserStore().currentUser?.ltoClientId) {
+          // User fetches only their registrations
+          const userId = useUserStore().currentUser?.ltoClientId
+          if (userId) {
+            const registrations = await vehicleRegistrationService.getRegistrationsByUserId(userId)
+            this.registrations = registrations || []
+            console.log(`User: loaded ${this.registrations.length} registrations`)
+          } else {
+            console.warn('No client ID found for current user')
+            this.registrations = []
+          }
+        }
+      } catch (error: any) {
+        console.error('Error fetching registrations:', error)
+        this.error = error.message || 'Failed to fetch registrations'
+        this.registrations = []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // Fetch all data at once (useful for initial load)
+    async fetchAllData() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        // Fetch vehicles first, then plates and registrations
+        await this.fetchVehicles()
+        
+        // Attempt to fetch plates and registrations even if we don't have vehicles
+        // as the API might still return data
+        await Promise.all([
+          this.fetchPlates(),
+          this.fetchRegistrations()
+        ])
+      } catch (error: any) {
+        console.error('Error fetching all data:', error)
+        this.error = error.message || 'Failed to fetch data'
+      } finally {
+        this.loading = false
+      }
+    },
+
     // Calculate days remaining until expiry for a registration or plate
     getDaysRemaining(expiryDateStr: string): number {
       const today = new Date()

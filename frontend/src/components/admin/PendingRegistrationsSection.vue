@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue'
-import { useVehicleRegistrationFormStore } from '@/stores/vehicleRegistrationForm'
+import { ref, computed, defineAsyncComponent, onMounted } from 'vue'
+import { useAdminDashboardStore } from '@/stores/adminDashboard'
 import { useUserStore } from '@/stores/user'
 import type {
   VehicleRegistrationForm,
@@ -65,8 +65,17 @@ const showDetailsModal = ref<boolean>(false)
 const showInspectionModal = ref<boolean>(false)
 const showPaymentModal = ref<boolean>(false)
 
-const vehicleRegistrationFormStore = useVehicleRegistrationFormStore()
+const adminStore = useAdminDashboardStore()
 const userStore = useUserStore()
+
+// Load data when component mounts
+onMounted(async () => {
+  try {
+    await adminStore.fetchAllData()
+  } catch (error) {
+    console.error('Error loading registration data:', error)
+  }
+})
 
 // MODAL HANDLERS
 const openDetailsModal = (registration: Registration): void => {
@@ -108,7 +117,7 @@ const closeDetailsModal = (): void => {
 
 const openInspectionModal = (registration: Registration): void => {
   // Get the full vehicleRegistrationForm from the store to ensure all required properties are present
-  const fullForm = vehicleRegistrationFormStore.forms.find((f) => f.id === registration.id)
+  const fullForm = adminStore.registrations.find((f) => f.id === registration.id)
 
   if (fullForm) {
     selectedVehicleForm.value = fullForm
@@ -126,7 +135,7 @@ const closeInspectionModal = (): void => {
 
 const openPaymentModal = (registration: Registration): void => {
   // Get the full vehicleRegistrationForm from the store to ensure all required properties are present
-  const fullForm = vehicleRegistrationFormStore.forms.find((f) => f.id === registration.id)
+  const fullForm = adminStore.registrations.find((f) => f.id === registration.id)
 
   if (fullForm) {
     selectedVehicleForm.value = fullForm
@@ -142,9 +151,9 @@ const closePaymentModal = (): void => {
   selectedVehicleForm.value = null
 }
 
-// Get registrations from store
+// Get registrations from the admin store
 const registrations = computed(() => {
-  const forms = vehicleRegistrationFormStore.forms
+  const forms = adminStore.registrations
   return forms.map((form) => ({
     id: form.id,
     submissionDate: form.appointmentDate || 'Not scheduled',
@@ -283,82 +292,80 @@ const sort = (column: string) => {
   }
 }
 
-// Registration actions
+// Registration actions - updated to use admin store
 const processRegistration = async (data: {
   registrationId: string
   action: 'approve' | 'reject'
 }): Promise<void> => {
-  await vehicleRegistrationFormStore.$patch((state) => {
-    const form = state.forms.find((f) => f.id === data.registrationId)
-    if (form) {
-      form.status = data.action === 'approve' ? 'approved' : 'rejected'
-
-      // If approved, set initial processing state
-      if (data.action === 'approve') {
-        form.inspectionStatus = 'pending'
-        form.paymentStatus = 'pending'
-
-        // Generate inspection code if it doesn't exist
-        if (!form.inspectionCode) {
-          const timestamp = new Date().getTime().toString().slice(-6)
-          const random = Math.floor(Math.random() * 10000)
-            .toString()
-            .padStart(4, '0')
-          form.inspectionCode = `INS-${timestamp}-${random}`
-        }
-
-        // Generate payment code if it doesn't exist
-        if (!form.paymentCode) {
-          const timestamp = new Date().getTime().toString().slice(-6)
-          const random = Math.floor(Math.random() * 10000)
-            .toString()
-            .padStart(4, '0')
-          form.paymentCode = `PAY-${timestamp}-${random}`
-        }
-      }
+  try {
+    const registrationData = {
+      status: data.action === 'approve' ? 'approved' : 'rejected',
     }
-  })
+    
+    if (data.action === 'approve') {
+      // Add inspection and payment related fields
+      Object.assign(registrationData, {
+        inspectionStatus: 'pending',
+        paymentStatus: 'pending',
+        inspectionCode: `INS-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+        paymentCode: `PAY-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      })
+    }
+    
+    // Update registration via API
+    await adminStore.updateRegistration(data.registrationId, registrationData)
+    
+    // Refresh registrations data
+    await adminStore.fetchAllRegistrations()
+  } catch (error) {
+    console.error('Error processing registration:', error)
+  }
 }
 
-// Handle inspection submission
+// Handle inspection submission - updated to use admin store
 const handleInspectionSubmit = async (data: {
   id: string
   inspectionStatus: 'approved' | 'rejected'
   inspectionNotes: string
   additionalVehicleData: AdditionalVehicleData
 }): Promise<void> => {
-  await vehicleRegistrationFormStore.$patch((state) => {
-    const form = state.forms.find((f) => f.id === data.id)
-    if (form) {
-      form.inspectionStatus = data.inspectionStatus
-      form.inspectionNotes = data.inspectionNotes
-      form.additionalVehicleData = data.additionalVehicleData
-
-      // Status updates
-      if (data.inspectionStatus === 'rejected') {
-        form.status = 'rejected'
-      } else if (data.inspectionStatus === 'approved') {
-        // Set default appointment date and time if not already scheduled
-        if (!form.appointmentDate || !form.appointmentTime) {
-          // Set date to 7 days from now
-          const appointmentDate = new Date()
-          appointmentDate.setDate(appointmentDate.getDate() + 7)
-
-          // Format the date as YYYY-MM-DD
-          form.appointmentDate = appointmentDate.toISOString().split('T')[0]
-
-          // Set a default appointment time (10:00 AM)
-          form.appointmentTime = '10:00'
-        }
+  try {
+    // Create the inspection record
+    await adminStore.createInspection(data.id, {
+      status: data.inspectionStatus,
+      notes: data.inspectionNotes,
+      vehicleData: data.additionalVehicleData
+    })
+    
+    // Update the registration status if needed
+    if (data.inspectionStatus === 'rejected') {
+      await adminStore.updateRegistration(data.id, { status: 'rejected' })
+    } else if (data.inspectionStatus === 'approved') {
+      // Set default appointment if not already scheduled
+      const registration = adminStore.registrations.find(r => r.id === data.id)
+      if (registration && (!registration.appointmentDate || !registration.appointmentTime)) {
+        // Set date to 7 days from now
+        const appointmentDate = new Date()
+        appointmentDate.setDate(appointmentDate.getDate() + 7)
+        
+        await adminStore.updateRegistration(data.id, {
+          appointmentDate: appointmentDate.toISOString().split('T')[0],
+          appointmentTime: '10:00'
+        })
       }
     }
-  })
-
-  showInspectionModal.value = false
-  selectedRegistration.value = null
+    
+    // Refresh registrations data
+    await adminStore.fetchAllRegistrations()
+    
+    showInspectionModal.value = false
+    selectedRegistration.value = null
+  } catch (error) {
+    console.error('Error submitting inspection:', error)
+  }
 }
 
-// Handle payment submission
+// Handle payment submission - updated to use admin store
 const handlePaymentSubmit = async (data: {
   id: string
   paymentStatus: 'approved' | 'rejected'
@@ -371,37 +378,32 @@ const handlePaymentSubmit = async (data: {
     referenceNumber: string
   }
 }): Promise<void> => {
-  await vehicleRegistrationFormStore.$patch((state) => {
-    const form = state.forms.find((f) => f.id === data.id)
-    if (form) {
-      form.paymentStatus = data.paymentStatus
-      form.paymentNotes = data.paymentNotes
-      form.paymentDetails = data.paymentDetails
-
-      if (data.paymentStatus === 'approved') {
-        // Update status to payment_completed
-        form.status = 'payment_completed' as any
-
-        if (!(form as any).paymentConfirmationCode) {
-          const timestamp = new Date().getTime().toString().slice(-6)
-          const random = Math.floor(Math.random() * 10000)
-            .toString()
-            .padStart(4, '0')
-          ;(form as any).paymentConfirmationCode = `CONF-${timestamp}-${random}`
-        }
-      } else if (data.paymentStatus === 'rejected') {
-        form.status = 'rejected'
-      }
+  try {
+    // Create the payment record
+    await adminStore.createPayment(data.id, {
+      status: data.paymentStatus,
+      notes: data.paymentNotes,
+      ...data.paymentDetails
+    })
+    
+    // Update the registration status
+    if (data.paymentStatus === 'approved') {
+      await adminStore.updateRegistration(data.id, { 
+        status: 'payment_completed',
+        paymentConfirmationCode: `CONF-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+      })
+    } else if (data.paymentStatus === 'rejected') {
+      await adminStore.updateRegistration(data.id, { status: 'rejected' })
     }
-  })
-
-  // If payment was approved, transfer the registration
-  if (data.paymentStatus === 'approved') {
-    vehicleRegistrationFormStore.transferToVehicleRegistration(data.id)
+    
+    // Refresh registrations data
+    await adminStore.fetchAllRegistrations()
+    
+    showPaymentModal.value = false
+    selectedRegistration.value = null
+  } catch (error) {
+    console.error('Error submitting payment:', error)
   }
-
-  showPaymentModal.value = false
-  selectedRegistration.value = null
 }
 
 // Status color utilities

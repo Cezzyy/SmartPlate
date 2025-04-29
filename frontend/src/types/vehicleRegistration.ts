@@ -112,16 +112,49 @@ export interface VehicleRegistrationState {
   currentStep: number
 }
 
-export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'payment_completed' | 'completed'
 
 export interface RegistrationStatusMessages {
   pending: string
   approved: string
   rejected: string
+  payment_completed?: string
+  completed?: string
 }
 
 export const registrationStatusMessages: RegistrationStatusMessages = {
   pending: 'Waiting for LTO officer approval',
   approved: 'Registration approved by LTO officer',
   rejected: 'Registration rejected by LTO officer',
+  payment_completed: 'Payment completed, awaiting plate issuance',
+  completed: 'Registration process completed',
 } as const
+
+// Inspection model for API
+export interface RegistrationInspection {
+  inspectionID: string
+  registrationFormID: string
+  inspectorID: string
+  inspectionDate: string
+  status: RegistrationStatus
+  notes: string
+  vehicle_condition: string
+  emission_test_passed: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+// Payment model for API
+export interface RegistrationPayment {
+  paymentID: string
+  registrationFormID: string
+  amount: number
+  paymentMethod: string
+  paymentDate: string
+  status: RegistrationStatus
+  receiptNumber: string
+  transactionID: string
+  notes: string
+  created_at?: string
+  updated_at?: string
+}

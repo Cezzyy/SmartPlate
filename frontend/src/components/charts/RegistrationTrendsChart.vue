@@ -20,7 +20,7 @@ const props = defineProps({
   },
   chartTitle: {
     type: String,
-    default: 'Registration Trends (Last 6 Months)',
+    default: 'Registration Trends',
   },
   primaryColor: {
     type: String,
@@ -32,11 +32,11 @@ const props = defineProps({
   },
   labelColor: {
     type: String,
-    default: '#8892b0', // gray from theme
+    default: '#8892b0', // gray
   },
   gridLineColor: {
     type: String,
-    default: '#f1f5f9', // light gray for grid lines
+    default: '#f1f5f9', // light gray
   },
   backgroundColor: {
     type: String,
@@ -44,24 +44,70 @@ const props = defineProps({
   },
 })
 
+// Check if data is empty
+const isEmpty = computed(() => {
+  return !props.registrationTrends || 
+    props.registrationTrends.length === 0 || 
+    props.registrationTrends.every(trend => trend.new === 0 && trend.renewal === 0)
+})
+
+// Calculate total registrations
+const totalRegistrations = computed(() => {
+  if (isEmpty.value) return 0
+  
+  return props.registrationTrends.reduce(
+    (total, item) => total + item.new + item.renewal,
+    0
+  )
+})
+
+// Calculate new registrations total
+const totalNew = computed(() => {
+  if (isEmpty.value) return 0
+  return props.registrationTrends.reduce((total, item) => total + item.new, 0)
+})
+
+// Calculate renewal registrations total
+const totalRenewal = computed(() => {
+  if (isEmpty.value) return 0
+  return props.registrationTrends.reduce((total, item) => total + item.renewal, 0)
+})
+
 // Chart data
 const chartData = computed(() => {
+  if (isEmpty.value) {
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          label: 'No registration data available',
+          data: [0],
+          backgroundColor: '#f1f1f1',
+          borderRadius: 6,
+          borderWidth: 0,
+        }
+      ],
+    }
+  }
+  
   return {
-    labels: props.registrationTrends.map((item) => item.month),
+    labels: props.registrationTrends.map((trend) => trend.month),
     datasets: [
       {
-        label: 'New Registration',
+        label: 'New Registrations',
+        data: props.registrationTrends.map((trend) => trend.new),
         backgroundColor: props.primaryColor,
-        borderRadius: 4,
-        maxBarThickness: 22,
-        data: props.registrationTrends.map((item) => item.new),
+        borderRadius: 6,
+        borderWidth: 0,
+        maxBarThickness: 25,
       },
       {
-        label: 'Renewal',
+        label: 'Renewals',
+        data: props.registrationTrends.map((trend) => trend.renewal),
         backgroundColor: props.secondaryColor,
-        borderRadius: 4,
-        maxBarThickness: 22,
-        data: props.registrationTrends.map((item) => item.renewal),
+        borderRadius: 6,
+        borderWidth: 0,
+        maxBarThickness: 25,
       },
     ],
   }
@@ -77,20 +123,30 @@ const chartOptions = computed(() => {
         position: 'top',
         align: 'end',
         labels: {
+          boxWidth: 12,
+          boxHeight: 12,
           usePointStyle: true,
-          pointStyle: 'rectRounded',
-          boxWidth: 10,
-          boxHeight: 10,
+          pointStyle: 'circle',
           padding: 20,
+          color: props.labelColor,
           font: {
             family: 'Inter, sans-serif',
             size: 12,
           },
-          color: props.labelColor,
         },
       },
       title: {
-        display: false,
+        display: true,
+        text: isEmpty.value ? 'No Registration Data' : props.chartTitle,
+        font: {
+          family: 'Inter, sans-serif',
+          size: 16,
+          weight: 'bold',
+        },
+        color: props.labelColor,
+        padding: {
+          bottom: 20,
+        },
       },
       tooltip: {
         backgroundColor: '#0a192f',
@@ -107,16 +163,19 @@ const chartOptions = computed(() => {
         },
         padding: 12,
         displayColors: true,
-        boxWidth: 8,
-        boxHeight: 8,
+        boxWidth: 10,
+        boxHeight: 10,
+        boxPadding: 3,
         cornerRadius: 8,
         callbacks: {
           label: function (context) {
+            if (isEmpty.value) return 'No data available'
+            
             let label = context.dataset.label || ''
             if (label) {
               label += ': '
             }
-            label += context.raw || '0'
+            label += context.parsed.y
             return label
           },
         },
@@ -137,10 +196,21 @@ const chartOptions = computed(() => {
           color: props.labelColor,
           precision: 0,
         },
+        title: {
+          display: true,
+          text: 'Number of Registrations',
+          color: props.labelColor,
+          font: {
+            family: 'Inter, sans-serif',
+            size: 12,
+            weight: 'normal',
+          },
+        },
       },
       x: {
         grid: {
           display: false,
+          drawBorder: false,
         },
         ticks: {
           font: {
@@ -157,19 +227,6 @@ const chartOptions = computed(() => {
     },
   }
 })
-
-// Calculate totals
-const totalNew = computed(() => {
-  return props.registrationTrends.reduce((sum, item) => sum + item.new, 0)
-})
-
-const totalRenewal = computed(() => {
-  return props.registrationTrends.reduce((sum, item) => sum + item.renewal, 0)
-})
-
-const totalRegistrations = computed(() => {
-  return totalNew.value + totalRenewal.value
-})
 </script>
 
 <template>
@@ -178,27 +235,34 @@ const totalRegistrations = computed(() => {
       <Bar :data="chartData" :options="chartOptions" />
     </div>
 
-    <div class="mt-6 grid grid-cols-3 gap-4">
+    <div v-if="!isEmpty" class="mt-6 grid grid-cols-3 gap-4">
       <div class="p-4 rounded-lg bg-gray-50 shadow-sm">
-        <div class="text-sm font-medium text-gray">Total</div>
+        <div class="text-sm font-medium text-gray">Total Registrations</div>
         <div class="text-2xl font-bold text-dark-blue">{{ totalRegistrations }}</div>
-        <div class="text-xs text-gray mt-1">All registrations</div>
+        <div class="text-xs text-gray mt-1">Last 6 months</div>
       </div>
 
       <div class="p-4 rounded-lg shadow-sm" :style="`background-color: ${primaryColor}10`">
-        <div class="text-sm font-medium" :style="`color: ${primaryColor}`">New</div>
+        <div class="flex items-center">
+          <div class="w-3 h-3 rounded-full mr-2" :style="`background-color: ${primaryColor}`"></div>
+          <div class="text-sm font-medium" :style="`color: ${primaryColor}`">New</div>
+        </div>
         <div class="text-2xl font-bold text-dark-blue">{{ totalNew }}</div>
         <div class="text-xs text-gray mt-1">
-          {{ totalRegistrations ? Math.round((totalNew / totalRegistrations) * 100) : 0 }}% of total
+          {{ totalRegistrations > 0 ? Math.round((totalNew / totalRegistrations) * 100) : 0 }}% of
+          total
         </div>
       </div>
 
       <div class="p-4 rounded-lg shadow-sm" :style="`background-color: ${secondaryColor}10`">
-        <div class="text-sm font-medium" :style="`color: ${secondaryColor}`">Renewal</div>
+        <div class="flex items-center">
+          <div class="w-3 h-3 rounded-full mr-2" :style="`background-color: ${secondaryColor}`"></div>
+          <div class="text-sm font-medium" :style="`color: ${secondaryColor}`">Renewals</div>
+        </div>
         <div class="text-2xl font-bold text-dark-blue">{{ totalRenewal }}</div>
         <div class="text-xs text-gray mt-1">
-          {{ totalRegistrations ? Math.round((totalRenewal / totalRegistrations) * 100) : 0 }}% of
-          total
+          {{ totalRegistrations > 0 ? Math.round((totalRenewal / totalRegistrations) * 100) : 0 }}%
+          of total
         </div>
       </div>
     </div>

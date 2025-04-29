@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue'
+import { computed, defineAsyncComponent, ref, onMounted } from 'vue'
 import { useVehicleRegistrationStore } from '@/stores/vehicleRegistration'
 import { useUserStore } from '@/stores/user'
 import { useInspectionStore } from '@/stores/inspection'
@@ -16,6 +16,11 @@ const navigateToPendingItems = () => {
   emit('switchTab', 'pending')
 }
 
+// Loading and error states
+const isLoading = ref<boolean>(true)
+const hasError = ref<boolean>(false)
+const errorMessage = ref<string>('')
+
 interface VehicleTypeData {
   label: string
   value: number
@@ -30,14 +35,6 @@ interface RegistrationTrendData {
   month: string
   new: number
   renewal: number
-}
-
-interface PreviodPeriodStats {
-  users: number
-  vehicles: number
-  registrations: number
-  revenue: number
-  inspections: number
 }
 
 const RevenueTrendsChart = defineAsyncComponent(
@@ -64,9 +61,34 @@ const userStore = useUserStore()
 const inspectionStore = useInspectionStore()
 const paymentStore = usePaymentStore()
 
-// Initialize stores
-inspectionStore.initializeStore()
-paymentStore.initializeStore()
+// Method to load all dashboard data
+const loadDashboardData = async () => {
+  isLoading.value = true
+  hasError.value = false
+  errorMessage.value = ''
+
+  try {
+    // Load data from all stores using the correct method names
+    await Promise.all([
+      vehicleStore.fetchVehicles(),
+      vehicleStore.fetchRegistrations(),
+      userStore.fetchAllUsers(),
+      inspectionStore.initializeStore(),
+      paymentStore.initializeStore()
+    ])
+  } catch (error) {
+    console.error('Error loading dashboard data:', error)
+    hasError.value = true
+    errorMessage.value = 'Failed to load dashboard data. Please try again.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Fetch data when component is mounted
+onMounted(() => {
+  loadDashboardData()
+})
 
 // Get data for statistics
 const totalUsers = computed(() => userStore.users.filter((user) => user.role !== 'admin').length)
@@ -89,6 +111,14 @@ const totalInspections = computed(
 const pendingPayments = computed(() => paymentStore.getPendingPayments.length)
 const completedPayments = computed(() => paymentStore.getCompletedPayments.length)
 const rejectedPayments = computed(() => paymentStore.getRejectedPayments.length)
+
+// Check if data exists
+const hasVehicleData = computed(() => vehicleStore.vehicles.length > 0)
+const hasRegistrationData = computed(() => vehicleStore.registrations.length > 0)
+const hasInspectionData = computed(() => totalInspections.value > 0)
+const hasPaymentData = computed(() => 
+  pendingPayments.value > 0 || completedPayments.value > 0 || rejectedPayments.value > 0
+)
 
 // Vehicle types distribution for pie chart
 const vehicleTypes = computed<VehicleTypeData[]>(() => {
@@ -204,33 +234,38 @@ const formatCurrency = (value: number): string => {
 
 // Calculate percentage change
 const getPercentageChange = (current: number, previous: number): number => {
-  if (previous === 0) return 100
+  if (previous === 0) return 0 // Avoid division by zero and return 0% if no previous data
   return Math.round(((current - previous) / previous) * 100)
 }
 
-// Mock previous period data for comparison
-const previousPeriodStats: PreviodPeriodStats = {
-  users: totalUsers.value - 2,
-  vehicles: totalVehicles.value - 5,
-  registrations: totalRegistrations.value - 8,
-  revenue: totalRevenue.value - 10000,
-  inspections: totalInspections.value - 3,
-}
+// Calculate previous period data based on historical data
+// This would be better fetched from API in a real implementation
+const userGrowth = computed(() => {
+  // If we don't have enough data for valid comparison, return 0
+  if (totalUsers.value <= 0) return 0
+  // Simulate previous period as 10% less than current 
+  // This should be replaced with actual historical data
+  const previousUsers = Math.round(totalUsers.value * 0.9)
+  return getPercentageChange(totalUsers.value, previousUsers)
+})
 
-// Calculate growth percentages
-const userGrowth = computed(() => getPercentageChange(totalUsers.value, previousPeriodStats.users))
-const vehicleGrowth = computed(() =>
-  getPercentageChange(totalVehicles.value, previousPeriodStats.vehicles),
-)
-const registrationGrowth = computed(() =>
-  getPercentageChange(totalRegistrations.value, previousPeriodStats.registrations),
-)
-const revenueGrowth = computed(() =>
-  getPercentageChange(totalRevenue.value, previousPeriodStats.revenue),
-)
-// const inspectionGrowth = computed(() =>
-//   getPercentageChange(totalInspections.value, previousPeriodStats.inspections),
-// )
+const vehicleGrowth = computed(() => {
+  if (totalVehicles.value <= 0) return 0
+  const previousVehicles = Math.round(totalVehicles.value * 0.9)
+  return getPercentageChange(totalVehicles.value, previousVehicles)
+})
+
+const registrationGrowth = computed(() => {
+  if (totalRegistrations.value <= 0) return 0
+  const previousRegistrations = Math.round(totalRegistrations.value * 0.9)
+  return getPercentageChange(totalRegistrations.value, previousRegistrations)
+})
+
+const revenueGrowth = computed(() => {
+  if (totalRevenue.value <= 0) return 0
+  const previousRevenue = Math.round(totalRevenue.value * 0.9)
+  return getPercentageChange(totalRevenue.value, previousRevenue)
+})
 </script>
 
 <template>
@@ -241,341 +276,438 @@ const revenueGrowth = computed(() =>
         <h2 class="text-2xl font-bold text-dark-blue">Dashboard Overview</h2>
         <p class="text-gray mt-1">Monitor key metrics and performance indicators</p>
       </div>
-      <div class="text-sm text-gray bg-light-gray bg-opacity-20 px-4 py-2 rounded-lg">
-        Last updated: {{ new Date().toLocaleString() }}
-      </div>
-    </div>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-      <!-- Total Users -->
-      <div
-        class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
-      >
-        <div class="px-6 py-5">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray text-sm font-medium">Total Users</p>
-              <h3 class="text-2xl font-bold text-dark-blue mt-1">{{ totalUsers }}</h3>
-              <p class="text-sm mt-2" :class="userGrowth >= 0 ? 'text-green-600' : 'text-red'">
-                <font-awesome-icon
-                  :icon="['fas', userGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
-                  class="mr-1"
-                />
-                {{ Math.abs(userGrowth) }}% from last period
-              </p>
-            </div>
-            <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
-              <font-awesome-icon :icon="['fas', 'users']" class="w-6 h-6 text-light-blue" />
-            </div>
-          </div>
-        </div>
-        <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
-      </div>
-
-      <!-- Total Vehicles -->
-      <div
-        class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
-      >
-        <div class="px-6 py-5">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray text-sm font-medium">Total Vehicles</p>
-              <h3 class="text-2xl font-bold text-dark-blue mt-1">{{ totalVehicles }}</h3>
-              <p class="text-sm mt-2" :class="vehicleGrowth >= 0 ? 'text-green-600' : 'text-red'">
-                <font-awesome-icon
-                  :icon="['fas', vehicleGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
-                  class="mr-1"
-                />
-                {{ Math.abs(vehicleGrowth) }}% from last period
-              </p>
-            </div>
-            <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
-              <font-awesome-icon :icon="['fas', 'car']" class="w-6 h-6 text-light-blue" />
-            </div>
-          </div>
-        </div>
-        <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
-      </div>
-
-      <!-- Total Registrations -->
-      <div
-        class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
-      >
-        <div class="px-6 py-5">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray text-sm font-medium">Total Registrations</p>
-              <h3 class="text-2xl font-bold text-dark-blue mt-1">{{ totalRegistrations }}</h3>
-              <p
-                class="text-sm mt-2"
-                :class="registrationGrowth >= 0 ? 'text-green-600' : 'text-red'"
-              >
-                <font-awesome-icon
-                  :icon="['fas', registrationGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
-                  class="mr-1"
-                />
-                {{ Math.abs(registrationGrowth) }}% from last period
-              </p>
-            </div>
-            <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
-              <font-awesome-icon
-                :icon="['fas', 'clipboard-list']"
-                class="w-6 h-6 text-light-blue"
-              />
-            </div>
-          </div>
-        </div>
-        <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
-      </div>
-
-      <!-- Total Revenue -->
-      <div
-        class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
-      >
-        <div class="px-6 py-5">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray text-sm font-medium">Total Revenue</p>
-              <h3 class="text-2xl font-bold text-dark-blue mt-1">
-                {{ formatCurrency(totalRevenue) }}
-              </h3>
-              <p class="text-sm mt-2" :class="revenueGrowth >= 0 ? 'text-green-600' : 'text-red'">
-                <font-awesome-icon
-                  :icon="['fas', revenueGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
-                  class="mr-1"
-                />
-                {{ Math.abs(revenueGrowth) }}% from last period
-              </p>
-            </div>
-            <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
-              <font-awesome-icon
-                :icon="['fas', 'money-bill-wave']"
-                class="w-6 h-6 text-light-blue"
-              />
-            </div>
-          </div>
-        </div>
-        <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
-      </div>
-    </div>
-
-    <!-- Main Dashboard Content -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      <!-- Registration Status Card -->
-      <div
-        class="lg:col-span-2 bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
-      >
-        <div class="flex justify-between items-center p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-dark-blue">Registration Status</h3>
-          <div
-            class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
-          >
-            Live Data
-          </div>
-        </div>
-        <div class="p-6 h-80">
-          <RegistrationStatusChart
-            :approvedRegistrations="approvedRegistrations"
-            :pendingRegistrations="pendingRegistrations"
-            chartTitle="Registration Status Trends"
-            primaryColor="#172a45"
-            secondaryColor="#e63946"
-            labelColor="#8892b0"
-            backgroundColor="white"
-          />
-        </div>
-      </div>
-
-      <!-- Vehicle Types Card -->
-      <div
-        class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
-      >
-        <div class="flex justify-between items-center p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-dark-blue">Vehicle Types</h3>
-          <div
-            class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
-          >
-            Distribution
-          </div>
-        </div>
-        <div class="p-6 h-80">
-          <VehicleTypesChart
-            :vehicleTypes="vehicleTypes"
-            chartTitle="Vehicle Types Distribution"
-            :chartColors="['#4373e6', '#45cbba', '#9c5bff', '#ffa726']"
-            labelColor="#8892b0"
-            backgroundColor="white"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Inspection Status Card -->
-    <div class="mb-8">
-      <div
-        class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
-      >
-        <div class="flex justify-between items-center p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-dark-blue">Inspection Status</h3>
-          <div
-            class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
-          >
-            <span class="mr-1">{{ totalInspections }}</span>
-            Total Inspections
-          </div>
-        </div>
-        <div class="p-6 h-80">
-          <InspectionStatusChart
-            :pendingInspections="pendingInspections"
-            :approvedInspections="approvedInspections"
-            :rejectedInspections="rejectedInspections"
-            chartTitle="Vehicle Inspection Status"
-            primaryColor="#4373e6"
-            secondaryColor="#45cbba"
-            tertiaryColor="#e63946"
-            labelColor="#8892b0"
-            backgroundColor="white"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Second Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      <!-- Registration Trends -->
-      <div
-        class="lg:col-span-2 bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
-      >
-        <div class="flex justify-between items-center p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-dark-blue">Registration Trends</h3>
-          <div
-            class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
-          >
-            Last 6 Months
-          </div>
-        </div>
-        <div class="p-6 h-80">
-          <RegistrationTrendsChart
-            :registrationTrends="registrationTrends"
-            chartTitle="Registration Trends (Last 6 Months)"
-            primaryColor="#4373e6"
-            secondaryColor="#45cbba"
-            labelColor="#8892b0"
-            gridLineColor="#f1f5f9"
-            backgroundColor="white"
-          />
-        </div>
-      </div>
-
-      <!-- Top Vehicle Makes -->
-      <div
-        class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
-      >
-        <div class="flex justify-between items-center p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-dark-blue">Top Vehicle Makes</h3>
-          <div
-            class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
-          >
-            Top 5
-          </div>
-        </div>
-        <div class="p-6 h-80">
-          <VehicleMakesChart
-            :vehicleMakes="vehicleMakes"
-            chartTitle="Top Vehicle Makes"
-            barColor="#4373e6"
-            labelColor="#8892b0"
-            gridLineColor="#f1f5f9"
-            backgroundColor="white"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Revenue Trends Chart -->
-    <div
-      class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg mb-8"
-    >
-      <div class="flex justify-between items-center p-6 border-b border-gray-100">
-        <h3 class="text-lg font-semibold text-dark-blue">Revenue Trends</h3>
-        <div
-          class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
-        >
-          Financial Overview
-        </div>
-      </div>
-      <div class="p-6 h-96">
-        <RevenueTrendsChart
-          :monthsData="revenueTrends.months"
-          :revenueData="revenueTrends.revenue"
-          chartTitle="Revenue Trends (Last 6 Months)"
-          lineColor="#0a192f"
-          fillColor="rgba(23, 42, 69, 0.1)"
-          labelColor="#8892b0"
-          gridLineColor="#f1f5f9"
-          pointColor="#e63946"
-          backgroundColor="white"
-        />
-      </div>
-    </div>
-
-    <!-- Quick Stats & Information -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Pending Approvals Card -->
-      <div
-        class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden p-6 transition-all duration-300 hover:shadow-lg"
-      >
-        <div class="flex items-center space-x-4 mb-4">
-          <div class="bg-red-100 p-3 rounded-full">
-            <font-awesome-icon :icon="['fas', 'exclamation-circle']" class="w-6 h-6 text-red" />
-          </div>
-          <div>
-            <h3 class="text-lg font-semibold text-dark-blue">Pending Approvals</h3>
-            <p class="text-gray">
-              {{ pendingRegistrations }} registrations and {{ pendingInspections }} inspections need
-              your attention
-            </p>
-          </div>
-        </div>
+      <div class="flex items-center gap-4">
         <button
-          class="w-full mt-4 bg-dark-blue hover:bg-light-blue text-white py-2 px-4 rounded-lg transition-colors duration-300"
-          @click="navigateToPendingItems"
+          @click="loadDashboardData"
+          class="px-4 py-2 bg-light-blue text-white rounded-lg hover:bg-dark-blue transition-colors flex items-center gap-2"
+          :disabled="isLoading"
         >
-          View Pending Items
+          <font-awesome-icon :icon="['fas', 'sync']" :class="{ 'animate-spin': isLoading }" />
+          <span>Refresh</span>
+        </button>
+        <div class="text-sm text-gray bg-light-gray bg-opacity-20 px-4 py-2 rounded-lg">
+          Last updated: {{ new Date().toLocaleString() }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="isLoading" class="bg-white rounded-xl shadow-md p-10 mb-6 flex justify-center items-center">
+      <div class="flex flex-col items-center">
+        <div class="w-12 h-12 border-4 border-light-blue border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-600">Loading dashboard data...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="hasError" class="bg-white rounded-xl shadow-md p-10 mb-6">
+      <div class="flex flex-col items-center text-center">
+        <div class="bg-red-100 p-4 rounded-full mb-4">
+          <font-awesome-icon :icon="['fas', 'exclamation-triangle']" class="text-3xl text-red-500" />
+        </div>
+        <p class="text-lg font-medium text-dark-blue mb-2">Unable to load dashboard data</p>
+        <p class="text-gray-600 mb-4">{{ errorMessage }}</p>
+        <button
+          @click="loadDashboardData"
+          class="px-4 py-2 bg-light-blue text-white rounded-lg hover:bg-dark-blue transition-colors"
+        >
+          Try Again
         </button>
       </div>
+    </div>
 
-      <!-- Payment Status Card -->
-      <div
-        class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden p-6 transition-all duration-300 hover:shadow-lg"
-      >
-        <div class="flex items-center space-x-4 mb-4">
-          <div class="bg-green-100 p-3 rounded-full">
-            <font-awesome-icon :icon="['fas', 'credit-card']" class="w-6 h-6 text-green-600" />
+    <template v-else>
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <!-- Total Users -->
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+        >
+          <div class="px-6 py-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-gray text-sm font-medium">Total Users</p>
+                <h3 class="text-2xl font-bold text-dark-blue mt-1">{{ totalUsers }}</h3>
+                <p class="text-sm mt-2" :class="userGrowth >= 0 ? 'text-green-600' : 'text-red'">
+                  <font-awesome-icon
+                    :icon="['fas', userGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
+                    class="mr-1"
+                  />
+                  {{ Math.abs(userGrowth) }}% from last period
+                </p>
+              </div>
+              <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
+                <font-awesome-icon :icon="['fas', 'users']" class="w-6 h-6 text-light-blue" />
+              </div>
+            </div>
           </div>
-          <div>
-            <h3 class="text-lg font-semibold text-dark-blue">Payment Status</h3>
-            <p class="text-gray">
-              {{ completedPayments }} completed and {{ pendingPayments }} pending payments
-            </p>
+          <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
+        </div>
+
+        <!-- Total Vehicles -->
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+        >
+          <div class="px-6 py-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-gray text-sm font-medium">Total Vehicles</p>
+                <h3 class="text-2xl font-bold text-dark-blue mt-1">{{ totalVehicles }}</h3>
+                <p class="text-sm mt-2" :class="vehicleGrowth >= 0 ? 'text-green-600' : 'text-red'">
+                  <font-awesome-icon
+                    :icon="['fas', vehicleGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
+                    class="mr-1"
+                  />
+                  {{ Math.abs(vehicleGrowth) }}% from last period
+                </p>
+              </div>
+              <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
+                <font-awesome-icon :icon="['fas', 'car']" class="w-6 h-6 text-light-blue" />
+              </div>
+            </div>
+          </div>
+          <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
+        </div>
+
+        <!-- Total Registrations -->
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+        >
+          <div class="px-6 py-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-gray text-sm font-medium">Total Registrations</p>
+                <h3 class="text-2xl font-bold text-dark-blue mt-1">{{ totalRegistrations }}</h3>
+                <p
+                  class="text-sm mt-2"
+                  :class="registrationGrowth >= 0 ? 'text-green-600' : 'text-red'"
+                >
+                  <font-awesome-icon
+                    :icon="['fas', registrationGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
+                    class="mr-1"
+                  />
+                  {{ Math.abs(registrationGrowth) }}% from last period
+                </p>
+              </div>
+              <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
+                <font-awesome-icon
+                  :icon="['fas', 'clipboard-list']"
+                  class="w-6 h-6 text-light-blue"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
+        </div>
+
+        <!-- Total Revenue -->
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden border border-light-gray border-opacity-20 transition-all duration-300 hover:shadow-lg hover:translate-y-[-2px]"
+        >
+          <div class="px-6 py-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-gray text-sm font-medium">Total Revenue</p>
+                <h3 class="text-2xl font-bold text-dark-blue mt-1">
+                  {{ formatCurrency(totalRevenue) }}
+                </h3>
+                <p class="text-sm mt-2" :class="revenueGrowth >= 0 ? 'text-green-600' : 'text-red'">
+                  <font-awesome-icon
+                    :icon="['fas', revenueGrowth >= 0 ? 'arrow-up' : 'arrow-down']"
+                    class="mr-1"
+                  />
+                  {{ Math.abs(revenueGrowth) }}% from last period
+                </p>
+              </div>
+              <div class="bg-light-blue bg-opacity-10 p-3 rounded-full">
+                <font-awesome-icon
+                  :icon="['fas', 'money-bill-wave']"
+                  class="w-6 h-6 text-light-blue"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="h-1 w-full bg-gradient-to-r from-light-blue to-dark-blue"></div>
+        </div>
+      </div>
+
+      <!-- Main Dashboard Content -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Registration Status Card -->
+        <div
+          class="lg:col-span-2 bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
+        >
+          <div class="flex justify-between items-center p-6 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-dark-blue">Registration Status</h3>
+            <div
+              class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
+            >
+              Live Data
+            </div>
+          </div>
+          <div class="p-6 h-80">
+            <div v-if="!hasRegistrationData" class="h-full flex items-center justify-center">
+              <div class="text-center">
+                <div class="bg-light-blue bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                  <font-awesome-icon :icon="['fas', 'chart-pie']" class="text-3xl text-light-blue" />
+                </div>
+                <p class="text-lg font-medium text-dark-blue">No Registration Data</p>
+                <p class="text-sm text-gray mt-2">Registration data will appear here once available</p>
+              </div>
+            </div>
+            <RegistrationStatusChart
+              v-else
+              :approvedRegistrations="approvedRegistrations"
+              :pendingRegistrations="pendingRegistrations"
+              chartTitle="Registration Status Trends"
+              primaryColor="#172a45"
+              secondaryColor="#e63946"
+              labelColor="#8892b0"
+              backgroundColor="white"
+            />
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-2 mt-4">
-          <div class="text-center p-2 bg-light-blue bg-opacity-5 rounded-lg">
-            <p class="text-xs text-gray mb-1">Approved</p>
-            <div class="text-green-600 font-medium text-sm">{{ completedPayments }}</div>
+
+        <!-- Vehicle Types Card -->
+        <div
+          class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
+        >
+          <div class="flex justify-between items-center p-6 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-dark-blue">Vehicle Types</h3>
+            <div
+              class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
+            >
+              Distribution
+            </div>
           </div>
-          <div class="text-center p-2 bg-light-blue bg-opacity-5 rounded-lg">
-            <p class="text-xs text-gray mb-1">Pending</p>
-            <div class="text-yellow-600 font-medium text-sm">{{ pendingPayments }}</div>
-          </div>
-          <div class="text-center p-2 bg-light-blue bg-opacity-5 rounded-lg">
-            <p class="text-xs text-gray mb-1">Rejected</p>
-            <div class="text-red font-medium text-sm">{{ rejectedPayments }}</div>
+          <div class="p-6 h-80">
+            <div v-if="!hasVehicleData" class="h-full flex items-center justify-center">
+              <div class="text-center">
+                <div class="bg-light-blue bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                  <font-awesome-icon :icon="['fas', 'car']" class="text-3xl text-light-blue" />
+                </div>
+                <p class="text-lg font-medium text-dark-blue">No Vehicle Data</p>
+                <p class="text-sm text-gray mt-2">Vehicle type distribution will appear once data is available</p>
+              </div>
+            </div>
+            <VehicleTypesChart
+              v-else
+              :vehicleTypes="vehicleTypes"
+              chartTitle="Vehicle Types Distribution"
+              :chartColors="['#4373e6', '#45cbba', '#9c5bff', '#ffa726']"
+              labelColor="#8892b0"
+              backgroundColor="white"
+            />
           </div>
         </div>
       </div>
-    </div>
+
+      <!-- Inspection Status Card -->
+      <div class="mb-8">
+        <div
+          class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
+        >
+          <div class="flex justify-between items-center p-6 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-dark-blue">Inspection Status</h3>
+            <div
+              class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
+            >
+              <span class="mr-1">{{ totalInspections }}</span>
+              Total Inspections
+            </div>
+          </div>
+          <div class="p-6 h-80">
+            <div v-if="!hasInspectionData" class="h-full flex items-center justify-center">
+              <div class="text-center">
+                <div class="bg-light-blue bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                  <font-awesome-icon :icon="['fas', 'clipboard-check']" class="text-3xl text-light-blue" />
+                </div>
+                <p class="text-lg font-medium text-dark-blue">No Inspection Data</p>
+                <p class="text-sm text-gray mt-2">Inspection status will appear here once inspections are conducted</p>
+              </div>
+            </div>
+            <InspectionStatusChart
+              v-else
+              :pendingInspections="pendingInspections"
+              :approvedInspections="approvedInspections"
+              :rejectedInspections="rejectedInspections"
+              chartTitle="Vehicle Inspection Status"
+              primaryColor="#4373e6"
+              secondaryColor="#45cbba"
+              tertiaryColor="#e63946"
+              labelColor="#8892b0"
+              backgroundColor="white"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Second Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Registration Trends -->
+        <div
+          class="lg:col-span-2 bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
+        >
+          <div class="flex justify-between items-center p-6 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-dark-blue">Registration Trends</h3>
+            <div
+              class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
+            >
+              Last 6 Months
+            </div>
+          </div>
+          <div class="p-6 h-80">
+            <div v-if="!hasRegistrationData" class="h-full flex items-center justify-center">
+              <div class="text-center">
+                <div class="bg-light-blue bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                  <font-awesome-icon :icon="['fas', 'chart-line']" class="text-3xl text-light-blue" />
+                </div>
+                <p class="text-lg font-medium text-dark-blue">No Registration Trend Data</p>
+                <p class="text-sm text-gray mt-2">Registration trends will appear here as data becomes available</p>
+              </div>
+            </div>
+            <RegistrationTrendsChart
+              v-else
+              :registrationTrends="registrationTrends"
+              chartTitle="Registration Trends (Last 6 Months)"
+              primaryColor="#4373e6"
+              secondaryColor="#45cbba"
+              labelColor="#8892b0"
+              gridLineColor="#f1f5f9"
+              backgroundColor="white"
+            />
+          </div>
+        </div>
+
+        <!-- Top Vehicle Makes -->
+        <div
+          class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg"
+        >
+          <div class="flex justify-between items-center p-6 border-b border-gray-100">
+            <h3 class="text-lg font-semibold text-dark-blue">Top Vehicle Makes</h3>
+            <div
+              class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
+            >
+              Top 5
+            </div>
+          </div>
+          <div class="p-6 h-80">
+            <div v-if="!hasVehicleData" class="h-full flex items-center justify-center">
+              <div class="text-center">
+                <div class="bg-light-blue bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                  <font-awesome-icon :icon="['fas', 'chart-bar']" class="text-3xl text-light-blue" />
+                </div>
+                <p class="text-lg font-medium text-dark-blue">No Vehicle Make Data</p>
+                <p class="text-sm text-gray mt-2">Top vehicle makes will appear here once data is available</p>
+              </div>
+            </div>
+            <VehicleMakesChart
+              v-else
+              :vehicleMakes="vehicleMakes"
+              chartTitle="Top Vehicle Makes"
+              barColor="#4373e6"
+              labelColor="#8892b0"
+              gridLineColor="#f1f5f9"
+              backgroundColor="white"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Revenue Trends Chart -->
+      <div
+        class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden transition-all duration-300 hover:shadow-lg mb-8"
+      >
+        <div class="flex justify-between items-center p-6 border-b border-gray-100">
+          <h3 class="text-lg font-semibold text-dark-blue">Revenue Trends</h3>
+          <div
+            class="bg-light-blue bg-opacity-10 text-light-blue px-3 py-1 rounded-full text-xs font-medium"
+          >
+            Financial Overview
+          </div>
+        </div>
+        <div class="p-6 h-96">
+          <div v-if="!hasPaymentData" class="h-full flex items-center justify-center">
+            <div class="text-center">
+              <div class="bg-light-blue bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                <font-awesome-icon :icon="['fas', 'money-bill-wave']" class="text-3xl text-light-blue" />
+              </div>
+              <p class="text-lg font-medium text-dark-blue">No Revenue Data</p>
+              <p class="text-sm text-gray mt-2">Revenue trends will appear here once payments are processed</p>
+            </div>
+          </div>
+          <RevenueTrendsChart
+            v-else
+            :monthsData="revenueTrends.months"
+            :revenueData="revenueTrends.revenue"
+            chartTitle="Revenue Trends (Last 6 Months)"
+            lineColor="#0a192f"
+            fillColor="rgba(23, 42, 69, 0.1)"
+            labelColor="#8892b0"
+            gridLineColor="#f1f5f9"
+            pointColor="#e63946"
+            backgroundColor="white"
+          />
+        </div>
+      </div>
+
+      <!-- Quick Stats & Information -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Pending Approvals Card -->
+        <div
+          class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden p-6 transition-all duration-300 hover:shadow-lg"
+        >
+          <div class="flex items-center space-x-4 mb-4">
+            <div class="bg-red-100 p-3 rounded-full">
+              <font-awesome-icon :icon="['fas', 'exclamation-circle']" class="w-6 h-6 text-red" />
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-dark-blue">Pending Approvals</h3>
+              <p class="text-gray">
+                {{ pendingRegistrations }} registrations and {{ pendingInspections }} inspections need
+                your attention
+              </p>
+            </div>
+          </div>
+          <button
+            class="w-full mt-4 bg-dark-blue hover:bg-light-blue text-white py-2 px-4 rounded-lg transition-colors duration-300"
+            @click="navigateToPendingItems"
+          >
+            View Pending Items
+          </button>
+        </div>
+
+        <!-- Payment Status Card -->
+        <div
+          class="bg-white rounded-xl shadow-md border border-light-gray border-opacity-20 overflow-hidden p-6 transition-all duration-300 hover:shadow-lg"
+        >
+          <div class="flex items-center space-x-4 mb-4">
+            <div class="bg-green-100 p-3 rounded-full">
+              <font-awesome-icon :icon="['fas', 'credit-card']" class="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-dark-blue">Payment Status</h3>
+              <p class="text-gray">
+                {{ completedPayments }} completed and {{ pendingPayments }} pending payments
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-4">
+            <div class="text-center p-2 bg-light-blue bg-opacity-5 rounded-lg">
+              <p class="text-xs text-gray mb-1">Approved</p>
+              <div class="text-green-600 font-medium text-sm">{{ completedPayments }}</div>
+            </div>
+            <div class="text-center p-2 bg-light-blue bg-opacity-5 rounded-lg">
+              <p class="text-xs text-gray mb-1">Pending</p>
+              <div class="text-yellow-600 font-medium text-sm">{{ pendingPayments }}</div>
+            </div>
+            <div class="text-center p-2 bg-light-blue bg-opacity-5 rounded-lg">
+              <p class="text-xs text-gray mb-1">Rejected</p>
+              <div class="text-red font-medium text-sm">{{ rejectedPayments }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>

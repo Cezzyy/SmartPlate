@@ -301,7 +301,7 @@ const confirmStatusToggle = async (): Promise<void> => {
     const userId = selectedUser.value.ltoClientId
     
     // Update the user status
-    const updatedUser = await userStore.updateUser(userId, { status: newStatus })
+    await userStore.updateUser(userId, { status: newStatus })
     
     // Refresh the users list
     await userStore.fetchAllUsers()

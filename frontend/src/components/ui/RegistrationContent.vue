@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted } from 'vue'
 import { useVehicleRegistrationStore } from '@/stores/vehicleRegistration'
 import { useUserStore } from '@/stores/user'
 
@@ -11,14 +11,34 @@ const RegistrationModal = defineAsyncComponent(
 const vehicleRegistrationStore = useVehicleRegistrationStore()
 const userStore = useUserStore()
 
+// Add loading state to show loading indicator
+const isLoading = ref(false)
+const loadError = ref<Error | null>(null)
+
+// Load data when component is mounted
+onMounted(async () => {
+  isLoading.value = true
+  try {
+    // Check if we have the data already
+    if (vehicleRegistrationStore.registrations.length === 0) {
+      await vehicleRegistrationStore.fetchAllData()
+    }
+  } catch (error) {
+    console.error('Error loading registration data:', error)
+    loadError.value = error instanceof Error ? error : new Error('Unknown error')
+  } finally {
+    isLoading.value = false
+  }
+})
+
 // Get registrations with detailed information
 const registrations = computed(() => {
   if (userStore.isAdmin) {
     return vehicleRegistrationStore.registrationsWithDetails
   } else {
     return vehicleRegistrationStore.userRegistrations.map((registration) => {
-      const vehicle = vehicleRegistrationStore.getVehicleById(registration.vehicleId)
-      const plate = vehicleRegistrationStore.getPlateById(registration.plateId)
+      const vehicle = vehicleRegistrationStore.vehicles.find(v => v.id === registration.vehicleId)
+      const plate = vehicleRegistrationStore.plates.find(p => p.vehicleId === registration.vehicleId)
 
       return {
         ...registration,
@@ -160,163 +180,181 @@ const closeRegistrationModal = () => {
       </div>
     </div>
 
-    <!-- Filters and Search -->
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-      <div class="space-y-4">
-        <!-- Search Bar -->
-        <div class="relative">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search by vehicle or plate number..."
-            class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all"
-          />
-          <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            <font-awesome-icon :icon="['fas', 'search']" class="w-4 h-4" />
-          </div>
-        </div>
+    <!-- Loading State -->
+    <div v-if="isLoading" class="flex justify-center items-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-dark-blue"></div>
+    </div>
 
-        <!-- Filter Options -->
-        <div class="flex flex-wrap gap-2">
-          <div class="mr-4">
-            <span class="text-sm font-medium text-gray-700 mr-2">Status:</span>
-            <div class="inline-flex rounded-md shadow-sm mt-1">
-              <button
-                v-for="filter in statusFilters"
-                :key="filter.value"
-                @click="setStatusFilter(filter.value)"
-                :class="[
-                  'px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-blue',
-                  filter.active
-                    ? 'bg-dark-blue text-white rounded-md'
-                    : 'text-gray-700 hover:bg-gray-100 rounded-md',
-                ]"
-              >
-                {{ filter.label }}
-              </button>
+    <!-- Error State -->
+    <div v-else-if="loadError" class="bg-red-50 text-red-700 p-4 rounded-lg mb-6">
+      <h3 class="font-medium">Error loading data</h3>
+      <p>{{ loadError.message }}</p>
+      <button 
+        @click="vehicleRegistrationStore.fetchAllData()" 
+        class="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 rounded-md text-sm font-medium">
+        Try Again
+      </button>
+    </div>
+
+    <template v-else>
+      <!-- Filters and Search -->
+      <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div class="space-y-4">
+          <!-- Search Bar -->
+          <div class="relative">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search by vehicle or plate number..."
+              class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-dark-blue/20 transition-all"
+            />
+            <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+              <font-awesome-icon :icon="['fas', 'search']" class="w-4 h-4" />
             </div>
           </div>
 
-          <div>
-            <span class="text-sm font-medium text-gray-700 mr-2">Type:</span>
-            <div class="inline-flex rounded-md shadow-sm mt-1">
-              <button
-                v-for="filter in typeFilters"
-                :key="filter.value"
-                @click="setTypeFilter(filter.value)"
-                :class="[
-                  'px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-blue',
-                  filter.active
-                    ? 'bg-dark-blue text-white rounded-md'
-                    : 'text-gray-700 hover:bg-gray-100 rounded-md',
-                ]"
-              >
-                {{ filter.label }}
-              </button>
+          <!-- Filter Options -->
+          <div class="flex flex-wrap gap-2">
+            <div class="mr-4">
+              <span class="text-sm font-medium text-gray-700 mr-2">Status:</span>
+              <div class="inline-flex rounded-md shadow-sm mt-1">
+                <button
+                  v-for="filter in statusFilters"
+                  :key="filter.value"
+                  @click="setStatusFilter(filter.value)"
+                  :class="[
+                    'px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-blue',
+                    filter.active
+                      ? 'bg-dark-blue text-white rounded-md'
+                      : 'text-gray-700 hover:bg-gray-100 rounded-md',
+                  ]"
+                >
+                  {{ filter.label }}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span class="text-sm font-medium text-gray-700 mr-2">Type:</span>
+              <div class="inline-flex rounded-md shadow-sm mt-1">
+                <button
+                  v-for="filter in typeFilters"
+                  :key="filter.value"
+                  @click="setTypeFilter(filter.value)"
+                  :class="[
+                    'px-3 py-1 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-blue',
+                    filter.active
+                      ? 'bg-dark-blue text-white rounded-md'
+                      : 'text-gray-700 hover:bg-gray-100 rounded-md',
+                  ]"
+                >
+                  {{ filter.label }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Registration Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      <div
-        v-for="registration in filteredRegistrations"
-        :key="registration.id"
-        class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-      >
-        <!-- Registration Header -->
-        <div class="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div class="flex justify-between items-center">
-            <h3 class="text-lg font-bold text-gray-800">{{ registration.vehicleInfo }}</h3>
-            <span
-              :class="[
-                'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm',
-                getStatusColor(registration.status),
-              ]"
-            >
-              {{ registration.status }}
-            </span>
-          </div>
-          <p class="text-sm text-gray-600 mt-1">Plate: {{ registration.plateNumber }}</p>
-        </div>
-
-        <!-- Registration Details -->
-        <div class="p-4">
-          <div class="space-y-3">
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">Registration Type</span>
-              <span class="text-sm font-medium">{{ registration.registrationType }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">Submission Date</span>
-              <span class="text-sm font-medium">{{ registration.submissionDate }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">Expiry Date</span>
-              <span class="text-sm font-medium">{{ registration.expiryDate }}</span>
-            </div>
-            <div
-              class="flex justify-between items-center px-3 py-2 rounded-md mt-2"
-              :class="getExpiryStatusColor(registration.expiryDate)"
-            >
-              <span class="text-xs font-medium">
-                {{ vehicleRegistrationStore.getExpiryStatus(registration.expiryDate) }}
-              </span>
-              <span class="text-xs">
-                {{ vehicleRegistrationStore.getDaysRemaining(registration.expiryDate) }} days
+      <!-- Registration Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div
+          v-for="registration in filteredRegistrations"
+          :key="registration.id"
+          class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+        >
+          <!-- Registration Header -->
+          <div class="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-gray-800">{{ registration.vehicleInfo }}</h3>
+              <span
+                :class="[
+                  'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm',
+                  getStatusColor(registration.status),
+                ]"
+              >
+                {{ registration.status }}
               </span>
             </div>
+            <p class="text-sm text-gray-600 mt-1">Plate: {{ registration.plateNumber }}</p>
           </div>
 
-          <!-- Documents & Fees Overview -->
-          <div class="mt-4 space-y-2">
-            <div>
-              <span class="text-sm font-medium text-gray-700">Documents:</span>
-              <div class="flex flex-wrap gap-1 mt-1">
-                <span
-                  v-for="(doc, index) in registration.documents"
-                  :key="index"
-                  class="text-xs bg-blue-50 text-blue-700 rounded-full px-2 py-1"
-                >
-                  {{ doc }}
+          <!-- Registration Details -->
+          <div class="p-4">
+            <div class="space-y-3">
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-500">Registration Type</span>
+                <span class="text-sm font-medium">{{ registration.registrationType }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-500">Submission Date</span>
+                <span class="text-sm font-medium">{{ registration.submissionDate }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-500">Expiry Date</span>
+                <span class="text-sm font-medium">{{ registration.expiryDate }}</span>
+              </div>
+              <div
+                class="flex justify-between items-center px-3 py-2 rounded-md mt-2"
+                :class="getExpiryStatusColor(registration.expiryDate)"
+              >
+                <span class="text-xs font-medium">
+                  {{ vehicleRegistrationStore.getExpiryStatus(registration.expiryDate) }}
+                </span>
+                <span class="text-xs">
+                  {{ vehicleRegistrationStore.getDaysRemaining(registration.expiryDate) }} days
                 </span>
               </div>
             </div>
-            <div v-if="registration.fees">
-              <span class="text-sm font-medium text-gray-700">Fees:</span>
-              <div class="text-sm text-gray-600 mt-1">
-                Total: ₱{{ registration.fees.total.toLocaleString() }}
+
+            <!-- Documents & Fees Overview -->
+            <div class="mt-4 space-y-2">
+              <div>
+                <span class="text-sm font-medium text-gray-700">Documents:</span>
+                <div class="flex flex-wrap gap-1 mt-1">
+                  <span
+                    v-for="(doc, index) in registration.documents"
+                    :key="index"
+                    class="text-xs bg-blue-50 text-blue-700 rounded-full px-2 py-1"
+                  >
+                    {{ doc }}
+                  </span>
+                </div>
+              </div>
+              <div v-if="registration.fees">
+                <span class="text-sm font-medium text-gray-700">Fees:</span>
+                <div class="text-sm text-gray-600 mt-1">
+                  Total: ₱{{ registration.fees.total.toLocaleString() }}
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Footer -->
-          <div class="flex justify-between items-center mt-4">
-            <span class="text-sm text-gray-500">{{ registration.owner }}</span>
-            <button
-              @click.prevent="openRegistrationModal(registration)"
-              class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 font-medium rounded-md hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300"
-            >
-              View Details
-            </button>
+            <!-- Footer -->
+            <div class="flex justify-between items-center mt-4">
+              <span class="text-sm text-gray-500">{{ registration.owner }}</span>
+              <button
+                @click.prevent="openRegistrationModal(registration)"
+                class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 font-medium rounded-md hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                View Details
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Empty State -->
-    <div
-      v-if="filteredRegistrations.length === 0"
-      class="bg-white rounded-lg shadow-sm p-12 flex flex-col items-center justify-center"
-    >
-      <div class="bg-gray-100 rounded-full p-4 mb-4">
-        <font-awesome-icon :icon="['fas', 'file-alt']" class="text-gray-400 w-8 h-8" />
+      <!-- Empty State -->
+      <div
+        v-if="filteredRegistrations.length === 0"
+        class="bg-white rounded-lg shadow-sm p-12 flex flex-col items-center justify-center"
+      >
+        <div class="bg-gray-100 rounded-full p-4 mb-4">
+          <font-awesome-icon :icon="['fas', 'file-alt']" class="text-gray-400 w-8 h-8" />
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-1">No registrations found</h3>
+        <p class="text-gray-500 mb-4">Try adjusting your search or filter criteria</p>
       </div>
-      <h3 class="text-lg font-medium text-gray-900 mb-1">No registrations found</h3>
-      <p class="text-gray-500 mb-4">Try adjusting your search or filter criteria</p>
-    </div>
+    </template>
 
     <!-- Registration Modal -->
     <RegistrationModal

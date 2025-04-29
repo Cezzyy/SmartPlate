@@ -44,11 +44,31 @@ const props = defineProps({
   },
 })
 
+// Check if data is empty
+const isEmpty = computed(() => {
+  return props.approvedRegistrations === 0 && props.pendingRegistrations === 0
+})
+
 // Calculate total registrations
 const totalRegistrations = computed(() => props.approvedRegistrations + props.pendingRegistrations)
 
 // Chart data
 const chartData = computed(() => {
+  if (isEmpty.value) {
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          data: [1],
+          backgroundColor: ['#f1f1f1'],
+          borderRadius: 6,
+          borderWidth: 0,
+          maxBarThickness: 50,
+        },
+      ],
+    }
+  }
+  
   return {
     labels: ['Approved', 'Pending'],
     datasets: [
@@ -96,6 +116,7 @@ const chartOptions = computed(() => {
         cornerRadius: 8,
         callbacks: {
           label: function (context) {
+            if (isEmpty.value) return 'No data available'
             const value = context.raw
             const percentage = Math.round((value / totalRegistrations.value) * 100)
             return `${value} (${percentage}%)`
@@ -171,7 +192,7 @@ const pendingPercentage = computed(() => {
       <Bar :data="chartData" :options="chartOptions" />
     </div>
 
-    <div class="mt-6 grid grid-cols-3 gap-4">
+    <div v-if="!isEmpty" class="mt-6 grid grid-cols-3 gap-4">
       <div class="p-4 rounded-lg bg-gray-50 shadow-sm">
         <div class="text-sm font-medium text-gray">Total</div>
         <div class="text-2xl font-bold text-dark-blue">{{ totalRegistrations }}</div>
