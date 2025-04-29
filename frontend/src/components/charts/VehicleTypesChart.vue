@@ -36,13 +36,36 @@ const props = defineProps({
   },
 })
 
+// Check if data is empty
+const isEmpty = computed(() => {
+  return !props.vehicleTypes || props.vehicleTypes.length === 0 || 
+    props.vehicleTypes.every(type => type.value === 0)
+})
+
 // Calculate total vehicles
 const totalVehicles = computed(() => {
+  if (isEmpty.value) return 0
   return props.vehicleTypes.reduce((sum, type) => sum + type.value, 0)
 })
 
 // Chart data
 const chartData = computed(() => {
+  if (isEmpty.value) {
+    // Return empty data structure for empty state
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          backgroundColor: '#f1f1f1',
+          borderRadius: 6,
+          borderWidth: 0,
+          maxBarThickness: 30,
+          data: [0],
+        },
+      ],
+    }
+  }
+  
   return {
     labels: props.vehicleTypes.map((type) => type.label),
     datasets: [
@@ -100,6 +123,7 @@ const chartOptions = computed(() => {
         callbacks: {
           label: function (context) {
             const value = context.raw
+            if (isEmpty.value || totalVehicles.value === 0) return 'No data'
             const percentage = Math.round((value / totalVehicles.value) * 100)
             return `${value} (${percentage}%)`
           },
@@ -149,7 +173,7 @@ const chartOptions = computed(() => {
       <Bar :data="chartData" :options="chartOptions" />
     </div>
 
-    <div class="mt-6 grid grid-cols-4 gap-2">
+    <div v-if="!isEmpty" class="mt-6 grid grid-cols-4 gap-2">
       <div
         v-for="(type, index) in vehicleTypes.slice(0, 4)"
         :key="index"

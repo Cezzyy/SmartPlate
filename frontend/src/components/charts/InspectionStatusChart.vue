@@ -44,8 +44,31 @@ const props = defineProps({
   },
 })
 
+// Compute total inspections
+const totalInspections = computed(() => {
+  return props.approvedInspections + props.pendingInspections + props.rejectedInspections
+})
+
+// Check if data is empty
+const isEmpty = computed(() => {
+  return totalInspections.value === 0
+})
+
 // Chart data
 const chartData = computed(() => {
+  if (isEmpty.value) {
+    return {
+      labels: ['No Data'],
+      datasets: [
+        {
+          backgroundColor: ['#f1f1f1'],
+          data: [1],
+          borderWidth: 0,
+        },
+      ],
+    }
+  }
+  
   return {
     labels: ['Approved', 'Pending', 'Rejected'],
     datasets: [
@@ -79,7 +102,7 @@ const chartOptions = computed(() => {
       },
       title: {
         display: true,
-        text: props.chartTitle,
+        text: isEmpty.value ? 'No Inspection Data' : props.chartTitle,
         font: {
           family: 'Inter, sans-serif',
           size: 16,
@@ -107,6 +130,8 @@ const chartOptions = computed(() => {
         cornerRadius: 8,
         callbacks: {
           label: function (context) {
+            if (isEmpty.value) return 'No data available'
+            
             const label = context.label || ''
             const value = context.raw || 0
             const total = context.dataset.data.reduce((a, b) => a + b, 0)
@@ -124,11 +149,6 @@ const chartOptions = computed(() => {
   }
 })
 
-// Compute total inspections
-const totalInspections = computed(() => {
-  return props.approvedInspections + props.pendingInspections + props.rejectedInspections
-})
-
 // Calculate percentage
 const calculatePercentage = (value) => {
   if (totalInspections.value === 0) return 0
@@ -141,6 +161,7 @@ const calculatePercentage = (value) => {
     <div class="flex-1 relative">
       <Doughnut :data="chartData" :options="chartOptions" />
       <div
+        v-if="!isEmpty"
         class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center"
       >
         <div class="text-3xl font-bold text-dark-blue">{{ totalInspections }}</div>
@@ -148,7 +169,7 @@ const calculatePercentage = (value) => {
       </div>
     </div>
 
-    <div class="mt-6 grid grid-cols-3 gap-4">
+    <div v-if="!isEmpty" class="mt-6 grid grid-cols-3 gap-4">
       <div class="p-4 rounded-lg shadow-sm" :style="`background-color: ${primaryColor}15`">
         <div class="text-sm font-medium" :style="`color: ${primaryColor}`">Approved</div>
         <div class="text-xl font-bold text-dark-blue mt-1">{{ props.approvedInspections }}</div>
