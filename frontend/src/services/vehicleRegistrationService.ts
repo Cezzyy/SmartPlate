@@ -163,11 +163,13 @@ const getAllRegistrations = async (): Promise<Registration[]> => {
     
     // Check if we received valid data
     if (response.data && Array.isArray(response.data)) {
+      console.log(`Received ${response.data.length} registrations from API`);
       return response.data;
     } else if (typeof response.data === 'object' && response.data !== null) {
       // Try to extract registrations from response
       console.log('Trying to extract registrations from object:', response.data);
       if (response.data.registrations && Array.isArray(response.data.registrations)) {
+        console.log(`Extracted ${response.data.registrations.length} registrations from response`);
         return response.data.registrations;
       }
     }
@@ -176,7 +178,7 @@ const getAllRegistrations = async (): Promise<Registration[]> => {
     return [];
   } catch (error) {
     console.error('Error fetching all registrations:', error);
-    return [];
+    throw error; // Propagate the error for proper handling in the store
   }
 };
 
