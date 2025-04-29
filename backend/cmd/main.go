@@ -58,8 +58,8 @@ func main() {
 	userHandler := handlers.NewUserHandler(userRepo)
 
 	// Setup AuthHandler and login endpoint
-	// tokenRepo := repository.NewPasswordResetTokenRepository(db)
-	authHandler := handlers.NewAuthHandler(userRepo)
+	tokenRepo := repository.NewPasswordResetTokenRepository(db)
+	authHandler := handlers.NewAuthHandler(userRepo, tokenRepo)
 	e.POST("/login", authHandler.Login)
 	e.POST("/admin/login", authHandler.AdminLogin)
 	e.POST("/reset-password", authHandler.ResetPassword)

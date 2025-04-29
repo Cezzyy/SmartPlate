@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
-	// "smartplate-api/internal/email"
+	"smartplate-api/internal/email"
 	"smartplate-api/internal/models"
 	"smartplate-api/internal/repository"
 )
@@ -20,16 +20,16 @@ var jwtSecret = []byte("your-secret-key") // In production, use environment vari
 
 type AuthHandler struct {
 	userRepo  *repository.UserRepository
-	// tokenRepo repository.PasswordResetTokenRepository
+	tokenRepo repository.PasswordResetTokenRepository
 }
 
 func NewAuthHandler(
 	userRepo *repository.UserRepository,
-	// tokenRepo repository.PasswordResetTokenRepository,
+	tokenRepo repository.PasswordResetTokenRepository,
 ) *AuthHandler {
 	return &AuthHandler{
 		userRepo:  userRepo,
-		// tokenRepo: tokenRepo,
+		tokenRepo: tokenRepo,
 	}
 }
 
@@ -252,8 +252,8 @@ func (h *AuthHandler) RequestPasswordReset(c echo.Context) error {
 	log.Printf("Password reset request completed successfully for: %s", req.Email)
 
 // 	// 5) always respond "accepted" so attackers can't enumerate
-// 	return c.NoContent(http.StatusAccepted)
-// }
+	return c.NoContent(http.StatusAccepted)
+}
 
 // Simple secure token generator
 func generateSecureToken() string {
