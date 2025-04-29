@@ -35,6 +35,18 @@ const routes: Array<RouteRecordRaw & { meta: RouteMeta }> = [
     meta: { requiresAuth: false, redirectIfAuth: true },
   },
   {
+    path: '/forgot-password',
+    name: 'forgotPassword',
+    component: () => import('../views/ForgotPasswordView.vue'),
+    meta: { requiresAuth: false, redirectIfAuth: true },
+  },
+  {
+    path: '/reset-password',
+    name: 'resetPassword',
+    component: () => import('../views/ResetPasswordView.vue'),
+    meta: { requiresAuth: false, redirectIfAuth: true },
+  },
+  {
     path: '/home',
     name: 'home',
     component: () => import('../views/HomeView.vue'),
@@ -108,30 +120,30 @@ router.beforeEach(
 
     // Check authentication status - force a fresh check
     const isAuthenticated = userStore.checkAuth()
-    
-    // More direct role checking with additional debugging 
+
+    // More direct role checking with additional debugging
     let currentRole = localStorage.getItem('userRole') || '';
     let normalizedRole = '';
-    
+
     // Try to get role from user state if not found in localStorage
     if (!currentRole && userStore.currentUser) {
       // Add debug output to understand the structure
       console.log('User state in navigation guard:', userStore.currentUser);
-      
+
       // Try to extract role from various possible locations
       const roleValue = userStore.currentUser.role;
-      
+
       if (roleValue !== undefined && roleValue !== null) {
         currentRole = typeof roleValue === 'string' ? roleValue : String(roleValue);
       }
     }
-    
+
     normalizedRole = currentRole.toLowerCase();
-    
+
     const isAdmin = normalizedRole === 'admin';
     const isLtoOfficer = normalizedRole === 'lto officer';
     const isAdminOrLtoOfficer = isAdmin || isLtoOfficer;
-    
+
     // Keep track of our route history for debugging
     const routeHistory = JSON.parse(localStorage.getItem('routeHistory') || '[]');
     routeHistory.push({ from: from.path, to: to.path, time: new Date().toISOString() });
@@ -140,7 +152,7 @@ router.beforeEach(
 
     console.log('Navigation guard:', {
       path: to.path,
-      from: from.path, 
+      from: from.path,
       isAuthenticated,
       currentRole,
       normalizedRole,
@@ -157,7 +169,7 @@ router.beforeEach(
     if (isAdminArea) {
       // Log current user role for debugging
       const currentRole = userStore.currentUser?.role || 'none';
-      
+
       if (!isAuthenticated) {
         // Not authenticated at all - go to admin login
         console.log('Accessing admin area without authentication, redirecting to admin login')
@@ -186,7 +198,7 @@ router.beforeEach(
     // If route requires authentication and user is not authenticated
     if (to.meta.requiresAuth && !isAuthenticated) {
       console.log('Route requires auth but user is not authenticated, redirecting to login')
-      
+
       // For admin pages, redirect to admin login instead
       if (to.meta.requiredRole === 'admin' || to.meta.requiredRole === 'lto officer') {
         next({ name: 'adminLogin' })
@@ -244,7 +256,7 @@ router.beforeEach(
     // If user is authenticated and route has redirectIfAuth flag
     if (isAuthenticated && to.meta.redirectIfAuth) {
       console.log('User is authenticated and route has redirectIfAuth flag, redirecting to home')
-      
+
       // If user is admin or LTO officer, redirect to appropriate dashboard
       if (isAdminOrLtoOfficer && localStorage.getItem('loginType') === 'admin') {
         console.log('User is admin/LTO officer, redirecting to appropriate dashboard')

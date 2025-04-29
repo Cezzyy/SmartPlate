@@ -11,7 +11,7 @@ export interface User {
   role?: string;
   status?: string;
   password?: string;
-  
+
   // Nested objects
   contact?: {
     contact_id?: number;
@@ -24,7 +24,7 @@ export interface User {
     emergency_contact_relationship?: string;
     emergency_contact_address?: string;
   };
-  
+
   address?: {
     address_id?: number;
     lto_client_id?: string;
@@ -35,7 +35,7 @@ export interface User {
     barangay?: string;
     zip_code?: string;
   };
-  
+
   medical_information?: {
     medical_id?: number;
     lto_client_id?: string;
@@ -48,7 +48,7 @@ export interface User {
     height?: number;
     organ_donor?: boolean;
   };
-  
+
   people?: {
     people_id?: number;
     lto_client_id?: string;
@@ -62,7 +62,7 @@ export interface User {
     father_last_name?: string;
     address?: string;
   };
-  
+
   personal_information?: {
     personal_id?: number;
     lto_client_id?: string;
@@ -94,6 +94,16 @@ export interface LoginCredentials {
   email: string;
   password: string;
   isAdminLogin?: boolean;
+}
+
+// Password reset interfaces
+export interface PasswordResetRequest {
+  email: string;
+}
+
+export interface PasswordResetSubmission {
+  token: string;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -135,26 +145,26 @@ const userService = {
     try {
       // Use different endpoints for admin login vs regular login
       const endpoint = credentials.isAdminLogin ? '/admin/login' : '/login';
-      
+
       // Remove isAdminLogin from credentials before sending to backend
       const { isAdminLogin, ...loginData } = credentials;
-      
+
       console.log(`Attempting ${isAdminLogin ? 'admin' : 'regular'} login with endpoint: ${endpoint}`);
-      
+
       const response = await api.post<LoginResponse>(endpoint, loginData);
       console.log(`${isAdminLogin ? 'Admin' : 'User'} login API response:`, response.data);
-      
+
       // Normalize the user data role field
       const userData = response.data.user as any;
       let role = '';
-      
+
       // Extract role from the user data
       if (userData.role) {
         role = userData.role.toLowerCase();
       } else if (userData.ROLE) {
         role = userData.ROLE.toLowerCase();
       }
-      
+
       // If this is an admin login, verify role
       if (isAdminLogin) {
         // Check if user has admin or LTO officer role
@@ -162,18 +172,18 @@ const userService = {
           throw new Error('Unauthorized: This portal is only for Administrators and LTO Officers');
         }
       }
-      
+
       // Standardize the role format in the response
       if (userData.role !== undefined) {
         userData.role = role === 'admin' ? 'admin' : role === 'lto officer' ? 'LTO Officer' : 'user';
       } else if (userData.ROLE !== undefined) {
         userData.ROLE = role === 'admin' ? 'admin' : role === 'lto officer' ? 'LTO Officer' : 'user';
       }
-      
+
       // Store token in localStorage
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
-        
+
         // For admin login, mark the login type
         if (isAdminLogin) {
           localStorage.setItem('loginType', 'admin');
@@ -181,19 +191,19 @@ const userService = {
           localStorage.removeItem('loginType');
         }
       }
-      
+
       // We'll let the Pinia store handle mapping and storing the user data
       return response.data;
     } catch (error) {
       console.error('Login error:', error);
-      
+
       // Add additional context for admin login errors
       if (credentials.isAdminLogin && (error as any).response?.status === 404) {
         const enhancedError = new Error('Admin login service is currently unavailable');
         (enhancedError as any).response = (error as any).response;
         throw enhancedError;
       }
-      
+
       throw error;
     }
   },
@@ -207,7 +217,7 @@ const userService = {
     try {
       // Try to get a user with this email
       await api.get(`/users/email/${email}`);
-      
+
       // If we get here, the email exists - reject with an appropriate error
       const error = new Error('Email already exists');
       (error as any).response = {
@@ -220,7 +230,7 @@ const userService = {
       if (error.response && error.response.status === 404) {
         return; // Email doesn't exist, so it's available
       }
-      
+
       // For any other error, rethrow
       throw error;
     }
@@ -272,7 +282,7 @@ const userService = {
     try {
       // Check if we're using the legacy format (uppercase fields)
       const isLegacyFormat = 'FIRST_NAME' in userData;
-      
+
       let data;
       if (isLegacyFormat) {
         // Use legacy format (uppercase fields)
@@ -286,11 +296,11 @@ const userService = {
           status: newData.status || 'active'
         };
       }
-      
+
       console.log('Sending registration data to server:', data);
       const response = await api.post<AnyUser>('/users', data);
       console.log('Registration API response:', response.data);
-      
+
       return response.data;
     } catch (error) {
       console.error('Registration error:', error);
@@ -307,17 +317,17 @@ const userService = {
   updateProfile: async (userId: string | number, userData: Partial<User | LegacyUser>): Promise<AnyUser> => {
     try {
       // Determine if the ID is an LTO client ID (typically starts with 2 and is longer than 10 digits)
-      const isLtoClientId = typeof userId === 'string' && 
-                           userId.length > 10 && 
+      const isLtoClientId = typeof userId === 'string' &&
+                           userId.length > 10 &&
                            userId.startsWith('2');
-      
+
       // Use the appropriate endpoint based on ID type
-      const endpoint = isLtoClientId 
+      const endpoint = isLtoClientId
                       ? `/users/by-lto/${userId}`  // Use LTO client ID endpoint
                       : `/users/${userId}`;        // Use regular user ID endpoint
-      
+
       console.log(`Using endpoint ${endpoint} for user update`);
-      
+
       const response = await api.put<AnyUser>(endpoint, userData);
       return response.data;
     } catch (error) {
@@ -340,4 +350,4 @@ const userService = {
   }
 };
 
-export default userService; 
+export default userService;
