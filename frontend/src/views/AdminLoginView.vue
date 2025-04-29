@@ -93,25 +93,30 @@ const handleAdminLogin = async (e) => {
   } catch (error) {
     console.error('Login error:', error);
     
-    // Check if error is axios error with response data
-    let errorMessage = '';
-    if (error.response) {
-      if (error.response.status === 404) {
-        errorMessage = 'The admin login service is currently unavailable. Please try again later.';
-      } else if (error.response.status === 401) {
-        errorMessage = 'Invalid email or password. Please check your credentials.';
-      } else if (error.response.data && error.response.data.error) {
-        errorMessage = error.response.data.error;
-      } else {
-        errorMessage = `Server error (${error.response.status}). Please try again later.`;
-      }
-    } else if (error.message) {
-      errorMessage = error.message;
+    // Check for specific account deactivation error message
+    if (error.message && error.message.includes('Account is deactivated')) {
+      errors.value.form = 'Your account has been deactivated. Please contact an administrator for assistance.'
     } else {
-      errorMessage = 'Login failed. Please check your credentials and try again.';
+      // Check if error is axios error with response data
+      let errorMessage = '';
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage = 'The admin login service is currently unavailable. Please try again later.';
+        } else if (error.response.status === 401) {
+          errorMessage = 'Invalid email or password. Please check your credentials.';
+        } else if (error.response.data && error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else {
+          errorMessage = `Server error (${error.response.status}). Please try again later.`;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      } else {
+        errorMessage = 'Login failed. Please check your credentials and try again.';
+      }
+      
+      errors.value.form = errorMessage;
     }
-    
-    errors.value.form = errorMessage;
     
     // Clear the password field after a failed login attempt
     password.value = '';

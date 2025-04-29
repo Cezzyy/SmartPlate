@@ -157,12 +157,20 @@ const userService = {
       // Normalize the user data role field
       const userData = response.data.user as any;
       let role = '';
+      let status = '';
 
-      // Extract role from the user data
+      // Extract role and status from the user data
       if (userData.role) {
         role = userData.role.toLowerCase();
+        status = (userData.status || '').toLowerCase();
       } else if (userData.ROLE) {
         role = userData.ROLE.toLowerCase();
+        status = (userData.STATUS || '').toLowerCase();
+      }
+
+      // Check if the user account is inactive
+      if (status === 'inactive') {
+        throw new Error('Account is deactivated. Please contact an administrator.');
       }
 
       // If this is an admin login, verify role
@@ -327,11 +335,80 @@ const userService = {
                       : `/users/${userId}`;        // Use regular user ID endpoint
 
       console.log(`Using endpoint ${endpoint} for user update`);
+      console.log('Sending update data to backend:', userData);
 
-      const response = await api.put<AnyUser>(endpoint, userData);
+      // Transform the data properly depending on format needed by backend
+      let transformedData: any = userData;
+      
+      // Check if we need to transform nested objects for the backend
+      if ('firstName' in userData) {
+        // Frontend format detected, transform to backend format
+        const frontendData = userData as any;
+        
+        transformedData = {
+          // Basic user information
+          first_name: frontendData.firstName,
+          last_name: frontendData.lastName,
+          middle_name: frontendData.middleName,
+          email: frontendData.email,
+          role: frontendData.role,
+          status: frontendData.status,
+          
+          // Nested objects if present
+          contact: frontendData.telephoneNumber || frontendData.mobileNumber ? {
+            telephone_number: frontendData.telephoneNumber || null,
+            mobile_number: frontendData.mobileNumber || null,
+          } : undefined,
+          
+          address: frontendData.houseNo || frontendData.street || frontendData.city || frontendData.province || frontendData.barangay || frontendData.zipCode ? {
+            house_no: frontendData.houseNo || null,
+            street: frontendData.street || null,
+            province: frontendData.province || null,
+            city_municipality: frontendData.city || null,
+            barangay: frontendData.barangay || null,
+            zip_code: frontendData.zipCode || null,
+          } : undefined,
+          
+          medical_information: frontendData.gender || frontendData.bloodType || frontendData.eyeColor || frontendData.hairColor || frontendData.weight || frontendData.height ? {
+            gender: frontendData.gender || null,
+            blood_type: frontendData.bloodType || null,
+            eye_color: frontendData.eyeColor || null,
+            hair_color: frontendData.hairColor || null,
+            weight: frontendData.weight || null,
+            height: frontendData.height || null,
+          } : undefined,
+          
+          personal_information: frontendData.nationality || frontendData.civilStatus || frontendData.dateOfBirth || frontendData.placeOfBirth || frontendData.tin ? {
+            nationality: frontendData.nationality || null,
+            civil_status: frontendData.civilStatus || null,
+            date_of_birth: frontendData.dateOfBirth || null,
+            place_of_birth: frontendData.placeOfBirth || null,
+            tin: frontendData.tin || null,
+          } : undefined,
+        };
+      }
+      
+      console.log('Transformed data for API:', transformedData);
+      
+      const response = await api.put<AnyUser>(endpoint, transformedData);
+      console.log('Update response from backend:', response.data);
       return response.data;
     } catch (error) {
       console.error('Update profile error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all users for admin panel
+   * @returns Promise with array of all users
+   */
+  getAllUsers: async (): Promise<AnyUser[]> => {
+    try {
+      const response = await api.get<AnyUser[]>('/users');
+      return response.data;
+    } catch (error) {
+      console.error('Get all users error:', error);
       throw error;
     }
   },

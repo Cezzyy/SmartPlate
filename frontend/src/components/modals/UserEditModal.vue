@@ -205,8 +205,8 @@ const saveChanges = async () => {
       zipCode: formData.zipCode,
     }
 
-    // Call the store action to update the user
-    const updatedUser = await userStore.updateUser(props.user.ltoClientId, updatedData)
+    // Call the store action to update the user with refreshAllUsers set to true
+    const updatedUser = await userStore.updateUser(props.user.ltoClientId, updatedData, true)
 
     // Success handling
     if (updatedUser) {

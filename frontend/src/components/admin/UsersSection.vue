@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import type { User } from '@/types/user'
 
@@ -29,12 +29,27 @@ const UserEditModal = defineAsyncComponent(() => import('@/components/modals/Use
 
 const userStore = useUserStore()
 
+// Loading state for initial data fetch
+const isLoading = ref(false)
+
 // Search and filter state
 const searchQuery = ref<string>('')
 const sortBy = ref<string>('name')
 const sortDesc = ref<boolean>(false)
 const currentPage = ref<number>(1)
 const itemsPerPage = ref<number>(10)
+
+// Fetch all users from the API when component is mounted
+onMounted(async () => {
+  try {
+    isLoading.value = true
+    await userStore.fetchAllUsers()
+  } catch (error) {
+    console.error('Error fetching users:', error)
+  } finally {
+    isLoading.value = false
+  }
+})
 
 // Get all users from the store
 const users = computed((): User[] => userStore.users || [])
@@ -174,7 +189,7 @@ const confirmAction = ref<string>('')
 // Notification state
 const showNotification = ref<boolean>(false)
 const notificationMessage = ref<string>('')
-const notificationType = ref<'success' | 'error'>('success')
+const notificationType = ref<'success' | 'error' | 'info'>('success')
 const notificationProgress = ref<number>(0)
 
 // Modal handlers
@@ -198,28 +213,54 @@ const closeEditModal = (): void => {
   selectedUser.value = null
 }
 
-const handleUserUpdate = (updatedUser: User): void => {
-  // Refresh the users list or update the user in the current list
-  // This will happen automatically due to reactivity if the store is updated
-  console.log('User updated:', updatedUser)
+const handleUserUpdate = async (updatedUser: User): Promise<void> => {
+  try {
+    // Reset and show notification
+    notificationProgress.value = 100
+    notificationMessage.value = `Updating user ${updatedUser.firstName} ${updatedUser.lastName}...`
+    notificationType.value = 'info'
+    showNotification.value = true
+    
+    // Refresh the users list to ensure we have the most up-to-date data
+    await userStore.fetchAllUsers()
+    
+    // Show success notification
+    notificationMessage.value = `User ${updatedUser.firstName} ${updatedUser.lastName} updated successfully`
+    notificationType.value = 'success'
+    
+    // Animate progress bar
+    let timeLeft = 100
+    const interval = setInterval(() => {
+      timeLeft -= 2
+      notificationProgress.value = timeLeft
 
-  // Reset and show notification
-  notificationProgress.value = 100
-  notificationMessage.value = `User ${updatedUser.firstName} ${updatedUser.lastName} updated successfully`
-  notificationType.value = 'success'
-  showNotification.value = true
+      if (timeLeft <= 0) {
+        clearInterval(interval)
+        showNotification.value = false
+      }
+    }, 100)
+    
+    // Close the edit modal
+    closeEditModal()
+  } catch (error) {
+    console.error('Error refreshing user list after update:', error)
+    
+    // Show error notification
+    notificationMessage.value = 'Failed to refresh user data. Please reload the page.'
+    notificationType.value = 'error'
+    
+    // Animate progress bar
+    let timeLeft = 100
+    const interval = setInterval(() => {
+      timeLeft -= 2
+      notificationProgress.value = timeLeft
 
-  // Animate progress bar
-  let timeLeft = 100
-  const interval = setInterval(() => {
-    timeLeft -= 2
-    notificationProgress.value = timeLeft
-
-    if (timeLeft <= 0) {
-      clearInterval(interval)
-      showNotification.value = false
-    }
-  }, 100)
+      if (timeLeft <= 0) {
+        clearInterval(interval)
+        showNotification.value = false
+      }
+    }, 100)
+  }
 }
 
 // Sorting handlers
@@ -245,66 +286,63 @@ const cancelStatusToggle = (): void => {
   selectedUser.value = null
 }
 
-const toggleUserStatus = async (): Promise<void> => {
+const confirmStatusToggle = async (): Promise<void> => {
   if (!selectedUser.value) return
-
+  
   try {
-    // Set new status
+    // Set notification to loading state
+    notificationProgress.value = 100
+    notificationMessage.value = `Updating status for ${selectedUser.value.name}...`
+    notificationType.value = 'info'
+    showNotification.value = true
+    
+    // Prepare update data
     const newStatus = selectedUser.value.status.toLowerCase() === 'active' ? 'inactive' : 'active'
-
-    // Call the store action to update the user status
-    const updatedUser = await userStore.updateUser(selectedUser.value.ltoClientId, {
-      status: newStatus as 'active' | 'inactive',
-    })
-
-    // Success handling
-    if (updatedUser) {
-      // Show success notification
-      notificationProgress.value = 100
-      notificationMessage.value = `User ${updatedUser.firstName} ${updatedUser.lastName} ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`
-      notificationType.value = 'success'
-      showNotification.value = true
-
-      // Animate progress bar
-      let timeLeft = 100
-      const interval = setInterval(() => {
-        timeLeft -= 2
-        notificationProgress.value = timeLeft
-
-        if (timeLeft <= 0) {
-          clearInterval(interval)
-          showNotification.value = false
-        }
-      }, 100)
-    }
-
-    // Close confirmation modal
+    const userId = selectedUser.value.ltoClientId
+    
+    // Update the user status
+    const updatedUser = await userStore.updateUser(userId, { status: newStatus })
+    
+    // Refresh the users list
+    await userStore.fetchAllUsers()
+    
+    // Close the confirmation modal
     showConfirmModal.value = false
     selectedUser.value = null
-  } catch (error) {
-    console.error('Error updating user status:', error)
-
-    // Show error notification
-    notificationProgress.value = 100
-    notificationMessage.value = 'Failed to update user status'
-    notificationType.value = 'error'
-    showNotification.value = true
-
+    
+    // Show success notification
+    notificationMessage.value = `User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`
+    notificationType.value = 'success'
+    
     // Animate progress bar
     let timeLeft = 100
     const interval = setInterval(() => {
       timeLeft -= 2
       notificationProgress.value = timeLeft
-
+      
       if (timeLeft <= 0) {
         clearInterval(interval)
         showNotification.value = false
       }
     }, 100)
-
-    // Close confirmation modal
-    showConfirmModal.value = false
-    selectedUser.value = null
+  } catch (error) {
+    console.error('Error updating user status:', error)
+    
+    // Show error notification
+    notificationMessage.value = `Error updating user status: ${error}`
+    notificationType.value = 'error'
+    
+    // Animate progress bar
+    let timeLeft = 100
+    const interval = setInterval(() => {
+      timeLeft -= 2
+      notificationProgress.value = timeLeft
+      
+      if (timeLeft <= 0) {
+        clearInterval(interval)
+        showNotification.value = false
+      }
+    }, 100)
   }
 }
 </script>
@@ -321,19 +359,19 @@ const toggleUserStatus = async (): Promise<void> => {
           <div
             :class="[
               'w-2 h-full mr-3',
-              notificationType === 'success' ? 'bg-green-500' : 'bg-red-500',
+              notificationType === 'success' ? 'bg-green-500' : notificationType === 'info' ? 'bg-blue-500' : 'bg-red-500',
             ]"
           ></div>
           <div class="flex items-center p-3 pr-4">
             <div
               :class="[
                 'flex items-center justify-center w-8 h-8 rounded-full mr-3',
-                notificationType === 'success' ? 'bg-green-100' : 'bg-red-100',
+                notificationType === 'success' ? 'bg-green-100' : notificationType === 'info' ? 'bg-blue-100' : 'bg-red-100',
               ]"
             >
               <font-awesome-icon
-                :icon="['fas', notificationType === 'success' ? 'check' : 'exclamation']"
-                :class="notificationType === 'success' ? 'text-green-500' : 'text-red-500'"
+                :icon="['fas', notificationType === 'success' ? 'check' : notificationType === 'info' ? 'info' : 'exclamation']"
+                :class="notificationType === 'success' ? 'text-green-500' : notificationType === 'info' ? 'text-blue-500' : 'text-red-500'"
                 class="text-sm"
               />
             </div>
@@ -353,7 +391,7 @@ const toggleUserStatus = async (): Promise<void> => {
           <div
             :class="[
               'h-full transition-all duration-300 ease-linear',
-              notificationType === 'success' ? 'bg-green-500' : 'bg-red-500',
+              notificationType === 'success' ? 'bg-green-500' : notificationType === 'info' ? 'bg-blue-500' : 'bg-red-500',
             ]"
             :style="{ width: notificationProgress + '%' }"
           ></div>
@@ -458,14 +496,24 @@ const toggleUserStatus = async (): Promise<void> => {
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-if="paginatedUsers.length === 0" class="hover:bg-gray-50">
+            <!-- Loading state -->
+            <tr v-if="isLoading" class="hover:bg-gray-50">
               <td colspan="6" class="px-6 py-10 text-center text-gray">
                 <div class="flex flex-col items-center justify-center space-y-3">
-                  <div class="bg-light-blue bg-opacity-10 p-4 rounded-full">
-                    <font-awesome-icon :icon="['fas', 'users']" class="text-3xl text-light-blue" />
-                  </div>
-                  <p class="text-lg font-medium text-dark-blue">No users found</p>
-                  <p class="text-sm text-gray">Try adjusting your search or filter criteria</p>
+                  <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-light-blue mb-4"></div>
+                  <p class="text-gray-600">Loading users...</p>
+                </div>
+              </td>
+            </tr>
+            <!-- No data state -->
+            <tr v-else-if="paginatedUsers.length === 0" class="hover:bg-gray-50">
+              <td colspan="6" class="px-6 py-10 text-center text-gray">
+                <div class="flex flex-col items-center justify-center space-y-3">
+                  <font-awesome-icon :icon="['fas', 'users-slash']" class="text-4xl text-gray-400 mb-2" />
+                  <p class="text-gray-600 font-medium">No users found</p>
+                  <p class="text-gray-500">
+                    {{ filteredUsers.length === 0 ? 'No users exist yet' : 'Try adjusting your filters' }}
+                  </p>
                 </div>
               </td>
             </tr>
@@ -626,76 +674,74 @@ const toggleUserStatus = async (): Promise<void> => {
     />
 
     <!-- Status Toggle Confirmation Modal -->
-    <transition name="fade">
-      <div
-        v-if="showConfirmModal && selectedUser"
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        @click.self="cancelStatusToggle"
-      >
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
-          <!-- Modal Header -->
-          <div
-            class="border-b px-6 py-4 flex items-center justify-between bg-gradient-to-r from-dark-blue to-blue-900 text-white"
-          >
-            <h3 class="text-xl font-semibold">
-              {{ confirmAction === 'deactivate' ? 'Deactivate' : 'Activate' }} User
-            </h3>
+    <div
+      v-if="showConfirmModal"
+      class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+      @click.self="cancelStatusToggle"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+        <div class="bg-gradient-to-r from-dark-blue to-blue-800 px-6 py-4">
+          <h3 class="text-xl font-bold text-white">
+            {{ confirmAction === 'deactivate' ? 'Deactivate User' : 'Activate User' }}
+          </h3>
+        </div>
+        <div class="p-6">
+          <div class="mb-4">
+            <font-awesome-icon
+              :icon="confirmAction === 'deactivate' ? ['fas', 'user-slash'] : ['fas', 'user-check']"
+              class="text-3xl mb-2"
+              :class="confirmAction === 'deactivate' ? 'text-red-500' : 'text-green-500'"
+            />
+            <p class="text-gray-700">
+              Are you sure you want to
+              <span
+                class="font-semibold"
+                :class="confirmAction === 'deactivate' ? 'text-red-600' : 'text-green-600'"
+              >
+                {{ confirmAction }}
+              </span>
+              this user?
+            </p>
+            <p v-if="confirmAction === 'deactivate'" class="mt-2 text-sm text-gray-600">
+              <font-awesome-icon :icon="['fas', 'exclamation-triangle']" class="text-yellow-500 mr-1" />
+              Deactivated users will no longer be able to log in to the system.
+            </p>
+          </div>
+          <div class="bg-gray-50 p-4 rounded-lg mb-4" v-if="selectedUser">
+            <div class="flex items-center">
+              <div
+                class="w-10 h-10 rounded-full bg-light-blue bg-opacity-10 flex items-center justify-center mr-3"
+              >
+                <font-awesome-icon :icon="['fas', 'user']" class="text-light-blue" />
+              </div>
+              <div>
+                <div class="font-medium text-gray-800">{{ selectedUser.name }}</div>
+                <div class="text-sm text-gray-500">{{ selectedUser.email }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-3">
             <button
               @click="cancelStatusToggle"
-              class="text-white hover:text-gray-200 focus:outline-none"
+              class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
             >
-              <font-awesome-icon :icon="['fas', 'times']" class="w-5 h-5" />
+              Cancel
             </button>
-          </div>
-
-          <!-- Modal Content -->
-          <div class="px-6 py-4">
-            <div class="mb-4">
-              <font-awesome-icon
-                :icon="['fas', confirmAction === 'deactivate' ? 'user-slash' : 'user-check']"
-                :class="confirmAction === 'deactivate' ? 'text-red-500' : 'text-green-500'"
-                class="text-4xl mb-3"
-              />
-              <p class="text-gray-700">
-                Are you sure you want to {{ confirmAction }}
-                <span class="font-bold">{{ selectedUser.name }}</span
-                >?
-              </p>
-              <p class="text-gray-500 text-sm mt-2">
-                {{
-                  confirmAction === 'deactivate'
-                    ? 'This user will no longer have access to the system.'
-                    : "This will restore the user's access to the system."
-                }}
-              </p>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="flex justify-end space-x-3 pt-4 border-t">
-              <button
-                type="button"
-                @click="cancelStatusToggle"
-                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                @click="toggleUserStatus"
-                :class="[
-                  'px-4 py-2 text-white rounded-md focus:outline-none',
-                  confirmAction === 'deactivate'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-green-600 hover:bg-green-700',
-                ]"
-              >
-                {{ confirmAction === 'deactivate' ? 'Deactivate' : 'Activate' }}
-              </button>
-            </div>
+            <button
+              @click="confirmStatusToggle"
+              class="px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white focus:outline-none transition-colors"
+              :class="
+                confirmAction === 'deactivate'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-green-600 hover:bg-green-700'
+              "
+            >
+              {{ confirmAction === 'deactivate' ? 'Deactivate' : 'Activate' }}
+            </button>
           </div>
         </div>
       </div>
-    </transition>
+    </div>
   </div>
 </template>
 

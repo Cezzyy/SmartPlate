@@ -284,7 +284,15 @@ const handleLogin = async (e) => {
       router.push(redirectPath.toString())
     } catch (error) {
       console.error('Login error:', error)
-      errors.form = error.response?.data?.error || 'Invalid email or password'
+      
+      // Check for specific account deactivation error message
+      if (error.message && error.message.includes('Account is deactivated')) {
+        errors.form = 'Your account has been deactivated due to certain violations of regulations.'
+      } else {
+        // For other errors
+        errors.form = error.response?.data?.error || error.message || 'Invalid email or password'
+      }
+      
       // Clear password on failed login attempt
       password.value = ''
     }
