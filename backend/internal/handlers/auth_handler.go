@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 
-	"smartplate-api/internal/email"
+	// "smartplate-api/internal/email"
 	"smartplate-api/internal/models"
 	"smartplate-api/internal/repository"
 )
@@ -20,16 +20,16 @@ var jwtSecret = []byte("your-secret-key") // In production, use environment vari
 
 type AuthHandler struct {
 	userRepo  *repository.UserRepository
-	tokenRepo repository.PasswordResetTokenRepository
+	// tokenRepo repository.PasswordResetTokenRepository
 }
 
 func NewAuthHandler(
 	userRepo *repository.UserRepository,
-	tokenRepo repository.PasswordResetTokenRepository,
+	// tokenRepo repository.PasswordResetTokenRepository,
 ) *AuthHandler {
 	return &AuthHandler{
 		userRepo:  userRepo,
-		tokenRepo: tokenRepo,
+		// tokenRepo: tokenRepo,
 	}
 }
 
@@ -197,44 +197,44 @@ func generateAdminJWTToken(user models.User) (string, error) {
 	return tokenString, nil
 }
 
-func (h *AuthHandler) RequestPasswordReset(c echo.Context) error {
-	// 1) bind input (e.g. JSON with { "email": "user@example.com" })
-	var req struct {
-		Email string `json:"email"`
-	}
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid payload")
-	}
+// func (h *AuthHandler) RequestPasswordReset(c echo.Context) error {
+// 	// 1) bind input (e.g. JSON with { "email": "user@example.com" })
+// 	var req struct {
+// 		Email string `json:"email"`
+// 	}
+// 	if err := c.Bind(&req); err != nil {
+// 		return echo.NewHTTPError(http.StatusBadRequest, "invalid payload")
+// 	}
 
-	// 2) look up user by email
-	user, err := h.userRepo.GetByEmail(req.Email)
-	if err == sql.ErrNoRows {
-		return c.NoContent(http.StatusAccepted)
-	} else if err != nil {
-		return err
-	}
+// 	// 2) look up user by email
+// 	user, err := h.userRepo.GetByEmail(req.Email)
+// 	if err == sql.ErrNoRows {
+// 		return c.NoContent(http.StatusAccepted)
+// 	} else if err != nil {
+// 		return err
+// 	}
 
-	// 3) create a token row in password_reset_token
-	token := generateSecureToken()
-	expires := time.Now().Add(1 * time.Hour)
-	if err := h.tokenRepo.Create(&models.PasswordResetToken{
-		LTOClientID: user.LTO_CLIENT_ID,
-		Token:       token,
-		ExpiresAt:   expires,
-	}); err != nil {
-		return err
-	}
+// 	// 3) create a token row in password_reset_token
+// 	token := generateSecureToken()
+// 	expires := time.Now().Add(1 * time.Hour)
+// 	if err := h.tokenRepo.Create(&models.PasswordResetToken{
+// 		LTOClientID: user.LTO_CLIENT_ID,
+// 		Token:       token,
+// 		ExpiresAt:   expires,
+// 	}); err != nil {
+// 		return err
+// 	}
 
-	// 4) send the email (fire-and-forget or handle error)
-	go func() {
-		if err := email.SendResetEmail(user.EMAIL, token); err != nil {
-			log.Printf("email error: %v", err)
-		}
-	}()
+// 	// 4) send the email (fire-and-forget or handle error)
+// 	go func() {
+// 		if err := email.SendResetEmail(user.EMAIL, token); err != nil {
+// 			log.Printf("email error: %v", err)
+// 		}
+// 	}()
 
-	// 5) always respond "accepted" so attackers can't enumerate
-	return c.NoContent(http.StatusAccepted)
-}
+// 	// 5) always respond "accepted" so attackers can't enumerate
+// 	return c.NoContent(http.StatusAccepted)
+// }
 
 // Simple secure token generator
 func generateSecureToken() string {

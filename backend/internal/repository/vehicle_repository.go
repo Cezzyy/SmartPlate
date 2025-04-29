@@ -4,6 +4,7 @@ package repository
 import (
     "context"
     "fmt"
+    "database/sql"  
     "strings"
     "smartplate-api/internal/models"
 
@@ -20,6 +21,7 @@ type VehicleRepository interface {
     GetVehicleByClientID(ctx context.Context, clientID string) (*models.Vehicle, error)
     UpdateVehicleByClientID(ctx context.Context, clientID string, fields map[string]interface{}) error
     DeleteVehicleByClientID(ctx context.Context, clientID string) error
+    GetByMVFileNumber(ctx context.Context, mvFileNumber string) (*models.Vehicle, error)
 }
 
 type vehicleRepo struct {
@@ -144,5 +146,31 @@ func (r *vehicleRepo) DeleteVehicleByClientID(ctx context.Context, clientID stri
         "DELETE FROM vehicles WHERE lto_client_id = $1", clientID,
     )
     return err
+}
+
+func (r *vehicleRepo) GetByMVFileNumber(ctx context.Context, mvFileNumber string) (*models.Vehicle, error) {
+    var v models.Vehicle
+    const q = `
+      SELECT
+        vehicle_id, vehicle_category, mv_file_number,
+        vehicle_make, vehicle_series, vehicle_type,
+        body_type, year_model, engine_model, engine_number,
+        chassis_number, piston_displacement, number_of_cylinders,
+        fuel_type, color, gvw, net_weight, shipping_weight,
+        usage_classification, first_registration_date,
+        late_renewal_date, registration_expiry_date,
+        lto_office_code, classification, denomination,
+        or_number, cr_number, lto_client_id
+      FROM vehicles
+      WHERE mv_file_number = $1
+    `
+    err := r.db.GetContext(ctx, &v, q, mvFileNumber)
+    if err == sql.ErrNoRows {
+        return nil, nil
+    }
+    if err != nil {
+        return nil, err
+    }
+    return &v, nil
 }
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { VehicleRegistrationForm } from '@/types/vehicleRegistration'
+import type { VehicleRegistrationForm } from '../../types/vehicleRegistration'
 import { ref, defineProps, defineEmits, computed, watch } from 'vue'
-import { usePaymentStore } from '@/stores/payment'
-import type { ExtendedPaymentDetails } from '@/stores/payment'
+import { usePaymentStore } from '../../stores/payment'
+import type { ExtendedPaymentDetails } from '../../stores/payment'
 
 const paymentStore = usePaymentStore()
 const props = defineProps<{

@@ -64,6 +64,7 @@ func (r *plateRepo) CreatePlate(ctx context.Context, p *models.Plate) (*models.P
     if err != nil {
         return nil, err
     }
+    
     defer rows.Close()
     if rows.Next() {
         if err := rows.Scan(&p.PlateID); err != nil {

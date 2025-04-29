@@ -1,23 +1,25 @@
 package ws
 
 import (
-    "net/http"
-    "encoding/json"
-    "log"
-    "time"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"log"
+	"net/http"
+	"time"
 
-    "github.com/gorilla/websocket"
-    "github.com/labstack/echo/v4"
+	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
 
-    "smartplate-api/internal/models"
-    "smartplate-api/internal/repository"
+	"smartplate-api/internal/models"
+	"smartplate-api/internal/repository"
 )
 
 // Upgrader configures the WebSocket upgrader
 var Upgrader = websocket.Upgrader{
-    ReadBufferSize:  1024,
-    WriteBufferSize: 1024,
-    CheckOrigin:     func(r *http.Request) bool { return true },
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
 // scanLogRepo holds the scan-log repository; set in main
@@ -25,110 +27,132 @@ var scanLogRepo repository.ScanLogRepository
 
 // SetScanLogRepository must be called in main to initialize logging
 func SetScanLogRepository(repo repository.ScanLogRepository) {
-    scanLogRepo = repo
+	scanLogRepo = repo
 }
 
-// PlateCheckRequest is the incoming WS payload
 type PlateCheckRequest struct {
-    Plate     string `json:"plate"`
-    Timestamp string `json:"timestamp"`
+	Plate     string `json:"plate"`
+	Timestamp string `json:"timestamp"`
 }
 
-// PlateCheckResponse is the outgoing WS response
 type PlateCheckResponse struct {
-    Plate   string      `json:"plate"`
-    Status  string      `json:"status"` // valid, not_found, expired, error
-    Details *DetailPack `json:"details,omitempty"`
+	Plate   string      `json:"plate"`
+	Status  string      `json:"status"` // valid, expired, not_issued, not_found, error
+	Details *DetailPack `json:"details,omitempty"`
 }
 
-// DetailPack holds optional details for a valid plate
 type DetailPack struct {
-    RegistrationForm *models.RegistrationForm `json:"registration_form,omitempty"`
-    Plates           []models.Plate           `json:"plates,omitempty"`
-    User             *models.User             `json:"user_record,omitempty"`
+	RegistrationForm *models.RegistrationForm `json:"registration_form,omitempty"`
+	Plates           []models.Plate           `json:"plates,omitempty"`
+	User             *models.User             `json:"user_record,omitempty"`
 }
 
-// ScannerWS serves the WS endpoint; signature unchanged.
 func ScannerWS(
-    plateRepo   repository.PlateRepository,
-    regFormRepo repository.RegistrationFormRepository,
-    userRepo    *repository.UserRepository,
+	plateRepo repository.PlateRepository,
+	regFormRepo repository.RegistrationFormRepository,
+	userRepo *repository.UserRepository,
+	vehicleRepo repository.VehicleRepository, // ← new
 ) echo.HandlerFunc {
-    return func(c echo.Context) error {
-        ws, err := Upgrader.Upgrade(c.Response().Writer, c.Request(), nil)
-        if err != nil {
-            return err
-        }
-        defer ws.Close()
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+		ws, err := Upgrader.Upgrade(c.Response().Writer, c.Request(), nil)
+		if err != nil {
+			return err
+		}
+		defer ws.Close()
 
-        for {
-            _, msg, err := ws.ReadMessage()
-            if err != nil {
-                log.Println("ws read error:", err)
-                break
-            }
+		for {
+			_, msg, err := ws.ReadMessage()
+			if err != nil {
+				log.Println("ws read error:", err)
+				break
+			}
 
-            var req PlateCheckRequest
-            if err := json.Unmarshal(msg, &req); err != nil {
-                log.Println("json unmarshal error:", err)
-                ws.WriteJSON(PlateCheckResponse{Status: "bad_request"})
-                continue
-            }
+			var req PlateCheckRequest
+			if err := json.Unmarshal(msg, &req); err != nil {
+				log.Println("json unmarshal error:", err)
+				ws.WriteJSON(PlateCheckResponse{Status: "bad_request"})
+				continue
+			}
 
-            log.Printf("[DEBUG] Received request: %+v", req)
+			log.Printf("[DEBUG] Received request: %+v", req)
 
-            // 1) Plate lookup
-            rec, err := plateRepo.GetByPlateNumber(c.Request().Context(), req.Plate)
-            validity := "error"
-            if err != nil {
-                log.Println("db lookup error:", err)
-            } else if rec == nil {
-                validity = "not_found"
-            } else if rec.PLATE_EXPIRATION_DATE.Before(time.Now()) {
-                validity = "expired"
-            } else {
-                validity = "valid"
-            }
+			var (
+				validity string
+				details  *DetailPack
+			)
 
-            var details *DetailPack
-            if rec != nil {
-                // fetch related details
-                regForm, _ := regFormRepo.GetByVehicleID(c.Request().Context(), rec.VEHICLE_ID)
-                plates, _ := plateRepo.GetPlatesByVehicleID(c.Request().Context(), rec.VEHICLE_ID)
-                var usr *models.User
-                if regForm != nil {
-                    u, _ := userRepo.GetByLTOClientID(regForm.LTOClientID)
-                    usr = &u
-                }
-                details = &DetailPack{RegistrationForm: regForm, Plates: plates, User: usr}
-            }
+			rec, err := plateRepo.GetByPlateNumber(ctx, req.Plate)
+			if err != nil {
+				log.Println("db lookup error:", err)
+				validity = "error"
 
-            resp := PlateCheckResponse{Plate: req.Plate, Status: validity, Details: details}
+			} else if rec != nil {
+				// Plate exists
+				if rec.PLATE_EXPIRATION_DATE.Valid && rec.PLATE_EXPIRATION_DATE.Time.Before(time.Now()) {
+					validity = "expired"
+				} else {
+					validity = "valid"
+				}
+				details = fetchDetails(ctx, rec.VEHICLE_ID, regFormRepo, plateRepo, userRepo)
 
-            // 2) Log scan event if repo set and details present
-            if scanLogRepo != nil && rec != nil && details != nil && details.RegistrationForm != nil {
-                plateID := rec.PlateID
-                registrationID := details.RegistrationForm.RegistrationFormID
-                vehicleID := rec.VEHICLE_ID
-                ltoClientID := details.RegistrationForm.LTOClientID
-                log.Printf("[DEBUG] Extracted IDs -> plate_id=%s, registration_id=%s, vehicle_id=%s, lto_client_id=%s", plateID, registrationID, vehicleID, ltoClientID)
-                entry := &models.ScanLog{PlateID: plateID, RegistrationID: registrationID, LTOClientID: ltoClientID, ScannedAt: time.Now()}
-                log.Printf("[DEBUG] Inserting scan_log entry: %+v", entry)
-                if err := scanLogRepo.Create(c.Request().Context(), entry); err != nil {
-                    log.Printf("[DEBUG] scan_log insert FAILED: %v", err)
-                } else {
-                    log.Printf("[DEBUG] scan_log insert SUCCESS")
-                }
-            } else {
-                log.Println("[DEBUG] scanLogRepo missing or details incomplete; skipping scan_log")
-            }
+			} else {
+				// --- 2) No plate → try MV file lookup ---
+				veh, err := vehicleRepo.GetByMVFileNumber(ctx, req.Plate)
+				if err != nil {
+					log.Println("vehicle lookup error:", err)
+					validity = "error"
 
-            log.Printf("[DEBUG] Sending WS response: %+v", resp)
-            if err := ws.WriteJSON(resp); err != nil {
-                log.Println("ws write error:", err)
-                break
-            }
-        }
-        return nil
-    }
+				} else if veh != nil {
+					// treat MV‐file scans as a valid temporary plate
+					validity = "valid"
+					details = fetchDetails(ctx, veh.VEHICLE_ID, regFormRepo, plateRepo, userRepo)
+
+					temp := models.Plate{
+						VEHICLE_ID:            veh.VEHICLE_ID,
+						PLATE_NUMBER:          veh.MV_FILE_NUMBER,
+						PLATE_TYPE:            "Temporary",
+						PLATE_ISSUE_DATE:      sql.NullTime{}, // null
+						PLATE_EXPIRATION_DATE: sql.NullTime{}, // null
+						STATUS:                "Temporary",
+					}
+					details.Plates = []models.Plate{temp}
+
+				} else {
+					// --- 3) Neither a plate nor MV file matches ---
+					validity = "not_found"
+				}
+			}
+
+			resp := PlateCheckResponse{
+				Plate:   req.Plate,
+				Status:  validity,
+				Details: details,
+			}
+
+			log.Printf("[DEBUG] Sending WS response: %+v", resp)
+			if err := ws.WriteJSON(resp); err != nil {
+				log.Println("ws write error:", err)
+				break
+			}
+		}
+		return nil
+	}
+}
+
+func fetchDetails(
+	ctx context.Context,
+	vehicleID string,
+	regFormRepo repository.RegistrationFormRepository,
+	plateRepo repository.PlateRepository,
+	userRepo *repository.UserRepository,
+) *DetailPack {
+	rf, _ := regFormRepo.GetByVehicleID(ctx, vehicleID)
+	pls, _ := plateRepo.GetPlatesByVehicleID(ctx, vehicleID)
+	var usr *models.User
+	if rf != nil {
+		u, _ := userRepo.GetByLTOClientID(rf.LTOClientID)
+		usr = &u
+	}
+	return &DetailPack{RegistrationForm: rf, Plates: pls, User: usr}
 }

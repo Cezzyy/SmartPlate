@@ -58,11 +58,11 @@ func main() {
 	userHandler := handlers.NewUserHandler(userRepo)
 
 	// Setup AuthHandler and login endpoint
-	tokenRepo := repository.NewPasswordResetTokenRepository(db)
-	authHandler := handlers.NewAuthHandler(userRepo, tokenRepo)
+	// tokenRepo := repository.NewPasswordResetTokenRepository(db)
+	authHandler := handlers.NewAuthHandler(userRepo)
 	e.POST("/login", authHandler.Login)
-	e.POST("/admin/login", authHandler.AdminLogin)
-	e.POST("/request-password-reset", authHandler.RequestPasswordReset)
+	// e.POST("/admin/login", authHandler.AdminLogin)
+	// e.POST("/request-password-reset", authHandler.RequestPasswordReset)
 
 	// Debug endpoint for checking admin accounts (REMOVE IN PRODUCTION)
 	e.GET("/debug/admin-accounts", func(c echo.Context) error {
@@ -114,7 +114,8 @@ func main() {
 
 	//for Vehicle routes
 	vh := handlers.NewVehicleHandler(repository.NewVehicleRepository(db))
-
+	vehicleRepo := repository.NewVehicleRepository(db)
+	
 	e.POST("/api/vehicles", vh.CreateVehicle) //working
 	e.GET("/api/vehicles", vh.GetAllVehicles) //working
 
@@ -126,6 +127,7 @@ func main() {
 	e.PUT("/api/vehicles/lto/:lto_client_id", vh.UpdateByClientID)    //working
 	e.DELETE("/api/vehicles/lto/:lto_client_id", vh.DeleteByClientID) //working
 
+	
 	//for plates routes
 	// plateRepo    := repository.NewPlateRepository(db)
 	plateRepo := repository.NewPlateRepository(db)
@@ -195,7 +197,9 @@ func main() {
 	//websocket
 	scanLogRepo := repository.NewScanLogRepository(db)
 	ws.SetScanLogRepository(scanLogRepo)
-	e.GET("/ws/scan", ws.ScannerWS(plateRepo, rfRepo, userRepo))
+    e.GET("/ws/scan",
+        ws.ScannerWS(plateRepo, rfRepo, userRepo, vehicleRepo),
+    )
 
 	// scan-log endpoints
 	scanLogHandler := handlers.NewScanLogHandler(scanLogRepo)
