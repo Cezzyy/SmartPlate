@@ -43,8 +43,37 @@ const deleteVehicle = async (vehicleId: string): Promise<boolean> => {
 };
 
 // Admin Plate Management
+const getAllPlates = async (): Promise<Plate[]> => {
+  try {
+    // First get all vehicles
+    const vehicles = await getAllVehicles();
+    const plates: Plate[] = [];
+
+    // Then get plates for each vehicle
+    for (const vehicle of vehicles) {
+      try {
+        const vehiclePlates = await getPlatesByVehicleId(vehicle.VEHICLE_ID);
+        if (vehiclePlates && vehiclePlates.length > 0) {
+          plates.push(...vehiclePlates);
+        }
+      } catch (err) {
+        console.warn(`Couldn't get plates for vehicle ${vehicle.VEHICLE_ID}:`, err);
+      }
+    }
+
+    return plates;
+  } catch (error) {
+    console.error('Error fetching all plates:', error);
+    return [];
+  }
+};
+
 const getPlatesByVehicleId = async (vehicleId: string): Promise<Plate[]> => {
   try {
+    if (!vehicleId) {
+      console.warn('No vehicle ID provided to getPlatesByVehicleId');
+      return [];
+    }
     const response = await api.get(`/api/vehicles/${vehicleId}/plates`);
     return response.data || [];
   } catch (error) {
@@ -202,27 +231,28 @@ export default {
   getVehicleById,
   updateVehicle,
   deleteVehicle,
-  
+
   // Plate methods
+  getAllPlates,
   getPlatesByVehicleId,
   getPlateById,
   updatePlate,
   deletePlate,
-  
+
   // Registration methods
   getAllRegistrations,
   getRegistrationById,
   getFullRegistrationById,
   updateRegistration,
   deleteRegistration,
-  
+
   // Inspection methods
   getInspections,
   createInspection,
   updateInspection,
-  
+
   // Payment methods
   getPayments,
   createPayment,
   updatePayment
-}; 
+};

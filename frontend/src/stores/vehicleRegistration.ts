@@ -23,52 +23,37 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
     // Get vehicles for the current user
     userVehicles(state): Vehicle[] {
       const userStore = useUserStore()
-      
       if (!userStore.currentUser) return []
-      
       return state.vehicles.filter(
-        (vehicle) => vehicle.ownerId === userStore.currentUser?.ltoClientId,
+        (vehicle) => vehicle.LTO_CLIENT_ID === userStore.currentUser?.ltoClientId,
       )
     },
 
     // Get plates for the current user's vehicles
     userPlates(state): Plate[] {
       const userStore = useUserStore()
-      
       if (!userStore.currentUser) return []
-      
-      // Get vehicles owned by the current user
-      const userVehicleIds = this.userVehicles.map((vehicle) => vehicle.id)
-      
-      // Filter plates that belong to the user's vehicles
-      return state.plates.filter((plate) => userVehicleIds.includes(plate.vehicleId))
+      const userVehicleIds = this.userVehicles.map((vehicle) => vehicle.VEHICLE_ID)
+      return state.plates.filter((plate) => userVehicleIds.includes(plate.vehicle_id))
     },
 
     // Get registrations for the current user's vehicles
     userRegistrations(state): Registration[] {
       const userStore = useUserStore()
-      
       if (!userStore.currentUser) return []
-      
-      // Get vehicles owned by the current user
-      const userVehicleIds = this.userVehicles.map((vehicle) => vehicle.id)
-      
-      // Filter registrations that belong to the user's vehicles
+      const userVehicleIds = this.userVehicles.map((vehicle) => vehicle.VEHICLE_ID)
       return state.registrations.filter((registration) =>
-        userVehicleIds.includes(registration.vehicleId),
+        userVehicleIds.includes(registration.VehicleID),
       )
     },
 
     getVehicleById:
       (state) =>
-      async (id: number): Promise<Vehicle | null> => {
+      async (id: string): Promise<Vehicle | null> => {
         try {
-          // First check if we already have it in state
-          const cachedVehicle = state.vehicles.find((v) => v.id === id)
+          const cachedVehicle = state.vehicles.find((v) => v.VEHICLE_ID === id)
           if (cachedVehicle) return cachedVehicle
-          
-          // If not, fetch it from the backend
-          const vehicle = await vehicleRegistrationService.getVehicleById(id.toString())
+          const vehicle = await vehicleRegistrationService.getVehicleById(id)
           return vehicle
         } catch (error) {
           console.error(`Error fetching vehicle ${id}:`, error)
@@ -78,15 +63,10 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
 
     getPlateById:
       (state) =>
-      async (id: number): Promise<Plate | null> => {
+      async (id: string): Promise<Plate | null> => {
         try {
-          // First check if we already have it in state
-          const cachedPlate = state.plates.find((p) => p.plateId === id)
+          const cachedPlate = state.plates.find((p) => p.plate_id === id)
           if (cachedPlate) return cachedPlate
-          
-          // If not, this is trickier since we need the vehicle ID
-          // We could implement a different backend endpoint for this
-          // For now, return null if not found in cache
           return null
         } catch (error) {
           console.error(`Error fetching plate ${id}:`, error)
@@ -109,30 +89,27 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
 
     getPlateByVehicleId:
       (state) =>
-      (vehicleId: number): Plate | undefined => {
-        return state.plates.find((plate) => plate.vehicleId === vehicleId)
+      (vehicleId: string): Plate | undefined => {
+        return state.plates.find((plate) => plate.vehicle_id === vehicleId)
       },
 
     getRegistrationByVehicleId:
       (state) =>
-      (vehicleId: number): Registration | undefined => {
-        return state.registrations.find((registration) => registration.vehicleId === vehicleId)
+      (vehicleId: string): Registration | undefined => {
+        return state.registrations.find((registration) => registration.VehicleID === vehicleId)
       },
 
     vehiclesWithOwnerInfo(state): (Vehicle & { owner: string; plateDetails: Plate | null })[] {
       const userStore = useUserStore()
       return state.vehicles.map((vehicle) => {
-        const owner = userStore.users.find((user) => user.ltoClientId === vehicle.ownerId)
-
-        // Get the plate for this vehicle
-        const plate = state.plates.find((p) => p.vehicleId === vehicle.id)
-
+        const owner = userStore.users.find((user) => user.ltoClientId === vehicle.LTO_CLIENT_ID)
+        const plate = state.plates.find((p) => p.vehicle_id === vehicle.VEHICLE_ID)
         return {
           ...vehicle,
           owner: owner ? `${owner.firstName} ${owner.lastName}` : 'Unknown',
           plateDetails: plate || null,
         }
-      }) as (Vehicle & { owner: string; plateDetails: Plate | null })[]
+      })
     },
 
     // Get plates with vehicle information
@@ -142,28 +119,22 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
       vehicle: string
       vehicleMake: string
       vehicleModel: string
-      vehicleYear: number | string
+      vehicleYear: string
       vehicleColor: string
     })[] => {
       return state.plates.map((plate) => {
-        const vehicle = state.vehicles.find((v) => v.id === plate.vehicleId)
+        const vehicle = state.vehicles.find((v) => v.VEHICLE_ID === plate.vehicle_id)
         return {
           ...plate,
           vehicle: vehicle
-            ? `${vehicle.vehicleMake} ${vehicle.vehicleSeries} ${vehicle.yearModel}`
+            ? `${vehicle.VEHICLE_MAKE} ${vehicle.VEHICLE_SERIES} ${vehicle.YEAR_MODEL}`
             : 'N/A',
-          vehicleMake: vehicle?.vehicleMake || '',
-          vehicleModel: vehicle?.vehicleSeries || '',
-          vehicleYear: vehicle?.yearModel || '',
-          vehicleColor: vehicle?.color || '',
+          vehicleMake: vehicle?.VEHICLE_MAKE || '',
+          vehicleModel: vehicle?.VEHICLE_SERIES || '',
+          vehicleYear: vehicle?.YEAR_MODEL || '',
+          vehicleColor: vehicle?.COLOR || '',
         }
-      }) as (Plate & {
-        vehicle: string
-        vehicleMake: string
-        vehicleModel: string
-        vehicleYear: number | string
-        vehicleColor: string
-      })[]
+      })
     },
 
     // Get registrations with vehicle and plate information
@@ -171,34 +142,34 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
       state,
     ): (Registration & { vehicleInfo: string; plateNumber: string })[] => {
       return state.registrations.map((registration) => {
-        const vehicle = state.vehicles.find((v) => v.id === registration.vehicleId)
-        const plate = state.plates.find((p) => p.vehicleId === registration.vehicleId)
-
+        const vehicle = state.vehicles.find((v) => v.VEHICLE_ID === registration.VehicleID)
+        const plate = state.plates.find((p) => p.vehicle_id === registration.VehicleID)
         return {
           ...registration,
           vehicleInfo: vehicle
-            ? `${vehicle.vehicleMake} ${vehicle.vehicleSeries} ${vehicle.yearModel}`
+            ? `${vehicle.VEHICLE_MAKE} ${vehicle.VEHICLE_SERIES} ${vehicle.YEAR_MODEL}`
             : 'No vehicle information',
           plateNumber: plate?.plate_number || 'No plate assigned',
         }
-      }) as (Registration & { vehicleInfo: string; plateNumber: string })[]
+      })
     },
 
     // Get active registrations
     activeRegistrations: (state): Registration[] => {
-      return state.registrations.filter((reg) => reg.status === 'Approved')
+      return state.registrations.filter((reg) => reg.Status === 'Approved')
     },
 
     // Get pending registrations
     pendingRegistrations: (state): Registration[] => {
-      return state.registrations.filter((reg) => reg.status === 'Pending')
+      return state.registrations.filter((reg) => reg.Status === 'Pending')
     },
 
     // Get expired registrations (where expiryDate is before today)
     expiredRegistrations: (state): Registration[] => {
       const today = new Date()
       return state.registrations.filter((reg) => {
-        const expiryDate = new Date(reg.expiryDate)
+        if (!reg.ExpiryDate) return false
+        const expiryDate = new Date(reg.ExpiryDate)
         return expiryDate < today
       })
     },
@@ -210,7 +181,8 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
       thirtyDaysFromNow.setDate(today.getDate() + 30)
 
       return state.registrations.filter((reg) => {
-        const expiryDate = new Date(reg.expiryDate)
+        if (!reg.ExpiryDate) return false
+        const expiryDate = new Date(reg.ExpiryDate)
         return expiryDate >= today && expiryDate <= thirtyDaysFromNow
       })
     },
@@ -222,11 +194,11 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
     async fetchVehicles() {
       this.loading = true
       this.error = null
-      
+
       try {
         const userStore = useUserStore();
         const userId = userStore.currentUser?.ltoClientId;
-        
+
         if (userStore.isAdmin) {
           // Admin fetches all vehicles
           const vehicles = await vehicleRegistrationService.getAllVehicles()
@@ -255,7 +227,7 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
     async fetchPlates() {
       this.loading = true
       this.error = null
-      
+
       try {
         if (useUserStore().isAdmin) {
           // Admin fetches all plates
@@ -265,19 +237,19 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
         } else if (this.vehicles.length > 0) {
           // Regular user: fetch plates for each of their vehicles
           const plates: Plate[] = []
-          
+
           // Try to fetch plates for each vehicle
           for (const vehicle of this.userVehicles) {
             try {
-              const vehiclePlates = await vehicleRegistrationService.getPlatesByVehicleId(vehicle.id.toString())
+              const vehiclePlates = await vehicleRegistrationService.getPlatesByVehicleId(vehicle.VEHICLE_ID)
               if (vehiclePlates && vehiclePlates.length > 0) {
                 plates.push(...vehiclePlates)
               }
             } catch (err) {
-              console.warn(`Couldn't fetch plates for vehicle ${vehicle.id}:`, err)
+              console.warn(`Couldn't fetch plates for vehicle ${vehicle.VEHICLE_ID}:`, err)
             }
           }
-          
+
           this.plates = plates
           console.log(`User: loaded ${this.plates.length} plates`)
         } else {
@@ -297,7 +269,7 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
     async fetchRegistrations() {
       this.loading = true
       this.error = null
-      
+
       try {
         if (useUserStore().isAdmin) {
           // Admin fetches all registrations
@@ -329,11 +301,11 @@ export const useVehicleRegistrationStore = defineStore('vehicleRegistration', {
     async fetchAllData() {
       this.loading = true
       this.error = null
-      
+
       try {
         // Fetch vehicles first, then plates and registrations
         await this.fetchVehicles()
-        
+
         // Attempt to fetch plates and registrations even if we don't have vehicles
         // as the API might still return data
         await Promise.all([

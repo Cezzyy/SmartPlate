@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
 import adminService from '@/services/adminService'
-import type { Vehicle, Plate } from '@/types/vehicle'
+import type { Vehicle, Plate, Registration } from '@/types/vehicle'
+import { useUserStore } from '@/stores/user'
 
 export interface AdminDashboardState {
   vehicles: Vehicle[]
   plates: Plate[]
-  registrations: any[]
+  registrations: Registration[]
   loading: boolean
   error: string | null
 }
@@ -20,50 +21,168 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
   }),
 
   getters: {
-    // Get plates with their associated vehicle information
-    platesWithVehicleInfo: (state) => {
-      return state.plates.map(plate => {
-        const vehicle = state.vehicles.find(v => v.id === Number(plate.vehicleId))
+    // Get plate by vehicle ID
+    getPlateByVehicleId: (state) => (vehicleId: string): Plate | undefined => {
+      return state.plates.find((p) => p.vehicle_id === vehicleId)
+    },
+
+    // Get vehicles with owner information
+    vehiclesWithOwnerInfo(state): (Vehicle & { owner: string; plateDetails: Plate | null })[] {
+      const userStore = useUserStore()
+      return state.vehicles.map((vehicle) => {
+        const owner = userStore.users.find((user) => user.ltoClientId === vehicle.LTO_CLIENT_ID)
+        const plate = state.plates.find((p) => p.vehicle_id === vehicle.VEHICLE_ID)
         return {
-          ...plate,
-          vehicleMake: vehicle?.vehicleMake || '',
-          vehicleModel: vehicle?.vehicleSeries || '',
-          vehicleYear: vehicle?.yearModel || '',
-          vehicleColor: vehicle?.color || ''
+          ...vehicle,
+          owner: owner ? `${owner.firstName} ${owner.lastName}` : 'Unknown',
+          plateDetails: plate || null,
         }
       })
     },
 
-    // Get registrations with vehicle information
-    registrationsWithVehicleInfo: (state) => {
-      return state.registrations.map(registration => {
-        const vehicle = state.vehicles.find(v => v.id === Number(registration.vehicleId))
+    // Get plates with vehicle information
+    platesWithVehicleInfo: (state) => {
+      return state.plates.map((plate) => {
+        const vehicle = state.vehicles.find((v) => v.VEHICLE_ID === plate.vehicle_id) as Vehicle | undefined
         return {
-          ...registration,
-          vehicleMake: vehicle?.vehicleMake || '',
-          vehicleModel: vehicle?.vehicleSeries || '',
-          vehicleYear: vehicle?.yearModel || '',
-          vehicleColor: vehicle?.color || ''
+          ...plate,
+          vehicle: vehicle ? `${vehicle.VEHICLE_MAKE} ${vehicle.VEHICLE_SERIES}` : 'Unknown',
+          vehicleMake: vehicle?.VEHICLE_MAKE || '',
+          vehicleModel: vehicle?.VEHICLE_SERIES || '',
+          vehicleYear: vehicle?.YEAR_MODEL || '',
+          vehicleColor: vehicle?.COLOR || '',
         }
       })
+    },
+
+    // Get incomplete registrations (those that need admin attention)
+    incompleteRegistrations(state): Registration[] {
+      return state.registrations.filter(reg =>
+        reg.Status !== 'completed' &&
+        reg.Status !== 'payment_completed' &&
+        reg.Status !== 'verified'
+      );
+    },
+
+    // Get vehicles with incomplete data that need admin attention
+    incompleteVehicles(state): Vehicle[] {
+      return state.vehicles.filter(vehicle => {
+        // Check for missing required fields that admin needs to fill
+        return !vehicle.OR_NUMBER ||
+               !vehicle.DENOMINATION ||
+               !vehicle.LTO_OFFICE_CODE ||
+               !vehicle.CLASSIFICATION ||
+               !vehicle.FIRST_REGISTRATION_DATE ||
+               !vehicle.REGISTRATION_EXPIRY_DATE
+      })
+    },
+
+    // Get registrations that need vehicle data completion
+    registrationsNeedingCompletion(state): Registration[] {
+      return state.registrations.filter(reg => {
+        const vehicle = state.vehicles.find(v => v.VEHICLE_ID === reg.VehicleID)
+        return vehicle && this.isVehicleIncomplete(vehicle)
+      })
+    },
+
+    // Check if vehicle data is incomplete
+    isVehicleIncomplete: (state) => (vehicle: Vehicle): boolean => {
+      const requiredFields = [
+        'OR_NUMBER',
+        'DENOMINATION',
+        'LTO_OFFICE_CODE',
+        'CLASSIFICATION',
+        'FIRST_REGISTRATION_DATE',
+        'REGISTRATION_EXPIRY_DATE'
+      ]
+
+      return requiredFields.some(field => !vehicle[field as keyof Vehicle])
+    },
+
+    // Get registrations with vehicle and plate information
+    registrationsWithDetails: (state) => {
+      const getPlateByVehicleId = (vehicleId: string): Plate | undefined => {
+        return state.plates.find((p) => p.vehicle_id === vehicleId)
+      }
+
+      return state.registrations.map((registration) => {
+        const vehicle = state.vehicles.find((v) => v.VEHICLE_ID === registration.VehicleID) as Vehicle | undefined
+        if (!vehicle) {
+          return {
+            ...registration,
+            vehicleInfo: 'Unknown Vehicle',
+            plateNumber: 'No Plate',
+          }
+        }
+
+        const plate = getPlateByVehicleId(vehicle.VEHICLE_ID)
+        return {
+          ...registration,
+          vehicleInfo: `${vehicle.VEHICLE_MAKE} ${vehicle.VEHICLE_SERIES}`,
+          plateNumber: plate?.plate_number || 'No Plate',
+        }
+      })
+    },
+
+    // Get registration by ID
+    getRegistrationById: (state) => (registrationId: string) => {
+      return state.registrations.find(reg => reg.RegistrationFormID === registrationId)
     },
 
     // Get registration by vehicle ID
-    getRegistrationByVehicleId: (state) => (vehicleId: number) => {
-      return state.registrations.find(reg => Number(reg.vehicleId) === vehicleId)
+    getRegistrationByVehicleId: (state) => (vehicleId: string) => {
+      return state.registrations.find(reg => reg.VehicleID === vehicleId)
     },
 
-    // Filter registrations by status
-    pendingRegistrations: (state) => {
-      return state.registrations.filter(reg => reg.status === 'pending')
+    // Get all plates
+    getAllPlates: (state) => {
+      return state.plates
     },
 
-    approvedRegistrations: (state) => {
-      return state.registrations.filter(reg => reg.status === 'approved')
+    // Get active registrations
+    activeRegistrations: (state): Registration[] => {
+      return state.registrations.filter((reg) => reg.Status === 'Approved')
     },
 
-    rejectedRegistrations: (state) => {
-      return state.registrations.filter(reg => reg.status === 'rejected')
+    // Get pending registrations
+    pendingRegistrations: (state): Registration[] => {
+      return state.registrations.filter((reg) => reg.Status === 'Pending')
+    },
+
+    // Get expired registrations (where expiryDate is before today)
+    expiredRegistrations: (state): Registration[] => {
+      const today = new Date()
+      return state.registrations.filter((reg) => {
+        const expiryDate = new Date(reg.SubmittedDate)
+        return expiryDate < today
+      })
+    },
+
+    // Get soon to expire registrations (within 30 days)
+    soonToExpireRegistrations: (state): Registration[] => {
+      const today = new Date()
+      const thirtyDaysFromNow = new Date()
+      thirtyDaysFromNow.setDate(today.getDate() + 30)
+
+      return state.registrations.filter((reg) => {
+        const expiryDate = new Date(reg.SubmittedDate)
+        return expiryDate >= today && expiryDate <= thirtyDaysFromNow
+      })
+    },
+
+    // Get completed registrations
+    getCompletedRegistrations: (state) => {
+      return state.registrations.filter(reg => reg.Status === 'completed')
+    },
+
+    // Get verified registrations
+    getVerifiedRegistrations: (state) => {
+      return state.registrations.filter(reg => reg.Status === 'verified')
+    },
+
+    // Get payment completed registrations
+    getPaymentCompletedRegistrations: (state) => {
+      return state.registrations.filter(reg => reg.Status === 'payment_completed')
     }
   },
 
@@ -72,7 +191,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     async fetchAllVehicles() {
       this.loading = true
       this.error = null
-      
+
       try {
         const vehicles = await adminService.getAllVehicles()
         this.vehicles = vehicles
@@ -90,12 +209,12 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     async fetchVehicleById(vehicleId: string) {
       this.loading = true
       this.error = null
-      
+
       try {
         const vehicle = await adminService.getVehicleById(vehicleId)
         if (vehicle) {
           // Update the vehicle in the state if it exists
-          const index = this.vehicles.findIndex(v => v.id === Number(vehicle.id))
+          const index = this.vehicles.findIndex(v => v.VEHICLE_ID === vehicle.VEHICLE_ID)
           if (index !== -1) {
             this.vehicles[index] = vehicle
           } else {
@@ -112,98 +231,64 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
       }
     },
 
-    // Update a vehicle
+    // Update vehicle
     async updateVehicle(vehicleId: string, vehicleData: Partial<Vehicle>) {
-      this.loading = true
-      this.error = null
-      
-      try {
-        const updatedVehicle = await adminService.updateVehicle(vehicleId, vehicleData)
-        if (updatedVehicle) {
-          const index = this.vehicles.findIndex(v => v.id === Number(updatedVehicle.id))
-          if (index !== -1) {
-            this.vehicles[index] = updatedVehicle
-          }
+      const updatedVehicle = await adminService.updateVehicle(vehicleId, vehicleData)
+      if (updatedVehicle) {
+        const index = this.vehicles.findIndex(v => v.VEHICLE_ID === updatedVehicle.VEHICLE_ID)
+        if (index !== -1) {
+          this.vehicles[index] = updatedVehicle
         }
-        return updatedVehicle
-      } catch (error: any) {
-        console.error(`Error updating vehicle ${vehicleId}:`, error)
-        this.error = error.message || `Failed to update vehicle ${vehicleId}`
-        return null
-      } finally {
-        this.loading = false
       }
+      return updatedVehicle
     },
 
-    // Delete a vehicle
+    // Delete vehicle
     async deleteVehicle(vehicleId: string) {
-      this.loading = true
-      this.error = null
-      
-      try {
-        const success = await adminService.deleteVehicle(vehicleId)
-        if (success) {
-          this.vehicles = this.vehicles.filter(v => v.id !== Number(vehicleId))
-        }
-        return success
-      } catch (error: any) {
-        console.error(`Error deleting vehicle ${vehicleId}:`, error)
-        this.error = error.message || `Failed to delete vehicle ${vehicleId}`
-        return false
-      } finally {
-        this.loading = false
+      const success = await adminService.deleteVehicle(vehicleId)
+      if (success) {
+        this.vehicles = this.vehicles.filter(v => v.VEHICLE_ID !== vehicleId)
       }
+      return success
     },
 
-    // Fetch all plates (by getting plates for each vehicle)
-    async fetchAllPlates() {
+    // Fetch plates from backend
+    async fetchPlates() {
       this.loading = true
       this.error = null
-      
+
       try {
-        // Make sure we have vehicles first
-        if (this.vehicles.length === 0) {
-          await this.fetchAllVehicles()
+        if (useUserStore().isAdmin) {
+          // Admin fetches all plates
+          const plates = await adminService.getAllPlates()
+          this.plates = plates || []
+          console.log(`Admin: loaded ${this.plates.length} plates`)
+        } else if (this.vehicles.length > 0) {
+          // Regular user: fetch plates for each of their vehicles
+          const plates: Plate[] = []
+
+          // Try to fetch plates for each vehicle
+          for (const vehicle of this.vehicles) {
+            try {
+              const vehiclePlates = await adminService.getPlatesByVehicleId(vehicle.VEHICLE_ID)
+              if (vehiclePlates && vehiclePlates.length > 0) {
+                plates.push(...vehiclePlates)
+              }
+            } catch (err) {
+              console.warn(`Couldn't fetch plates for vehicle ${vehicle.VEHICLE_ID}:`, err)
+            }
+          }
+
+          this.plates = plates
+          console.log(`User: loaded ${this.plates.length} plates`)
+        } else {
+          console.warn('No vehicles found to fetch plates for')
+          this.plates = []
         }
-        
-        // Fetch plates for each vehicle
-        const allPlates: Plate[] = []
-        for (const vehicle of this.vehicles) {
-          const plates = await adminService.getPlatesByVehicleId(vehicle.id.toString())
-          allPlates.push(...plates)
-        }
-        
-        this.plates = allPlates
-        console.log(`Admin: loaded ${this.plates.length} plates`)
-        return this.plates
       } catch (error: any) {
-        console.error('Error fetching all plates:', error)
+        console.error('Error fetching plates:', error)
         this.error = error.message || 'Failed to fetch plates'
-        return []
-      } finally {
-        this.loading = false
-      }
-    },
-
-    // Fetch plates for a specific vehicle
-    async fetchPlatesByVehicleId(vehicleId: string) {
-      this.loading = true
-      this.error = null
-      
-      try {
-        const plates = await adminService.getPlatesByVehicleId(vehicleId)
-        
-        // Update only the plates for this vehicle, keeping others
-        this.plates = [
-          ...this.plates.filter(p => Number(p.vehicleId) !== Number(vehicleId)),
-          ...plates
-        ]
-        
-        return plates
-      } catch (error: any) {
-        console.error(`Error fetching plates for vehicle ${vehicleId}:`, error)
-        this.error = error.message || `Failed to fetch plates for vehicle ${vehicleId}`
-        return []
+        this.plates = []
       } finally {
         this.loading = false
       }
@@ -213,11 +298,11 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     async updatePlate(vehicleId: string, plateId: string, plateData: Partial<Plate>) {
       this.loading = true
       this.error = null
-      
+
       try {
         const updatedPlate = await adminService.updatePlate(vehicleId, plateId, plateData)
         if (updatedPlate) {
-          const index = this.plates.findIndex(p => p.plateId === Number(plateId))
+          const index = this.plates.findIndex(p => p.plate_id === plateId)
           if (index !== -1) {
             this.plates[index] = updatedPlate
           }
@@ -236,34 +321,32 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     async fetchAllRegistrations() {
       this.loading = true
       this.error = null
-      
+
       try {
         const registrations = await adminService.getAllRegistrations()
         this.registrations = registrations
-        console.log(`Admin: loaded ${this.registrations.length} registrations`)
-        return this.registrations
       } catch (error: any) {
         console.error('Error fetching registrations:', error)
         this.error = error.message || 'Failed to fetch registrations'
-        return []
+        this.registrations = []
       } finally {
         this.loading = false
       }
     },
 
-    // Fetch registration by ID with full details
+    // Get registration by ID
     async fetchRegistrationById(registrationId: string, full = false) {
       this.loading = true
       this.error = null
-      
+
       try {
         const registration = full
           ? await adminService.getFullRegistrationById(registrationId)
           : await adminService.getRegistrationById(registrationId)
-          
+
         if (registration) {
           // Update the registration in the state if it exists
-          const index = this.registrations.findIndex(r => r.id === registration.id)
+          const index = this.registrations.findIndex(r => r.RegistrationFormID === registration.RegistrationFormID)
           if (index !== -1) {
             this.registrations[index] = registration
           } else {
@@ -280,26 +363,17 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
       }
     },
 
-    // Update a registration
-    async updateRegistration(registrationId: string, registrationData: any) {
-      this.loading = true
-      this.error = null
-      
+    // Update registration status
+    async updateRegistration(registrationId: string, status: string) {
       try {
-        const updatedRegistration = await adminService.updateRegistration(registrationId, registrationData)
-        if (updatedRegistration) {
-          const index = this.registrations.findIndex(r => r.id === registrationId)
-          if (index !== -1) {
-            this.registrations[index] = updatedRegistration
-          }
+        const updatedRegistration = await adminService.updateRegistration(registrationId, { Status: status })
+        const index = this.registrations.findIndex(reg => reg.RegistrationFormID === registrationId)
+        if (index !== -1) {
+          this.registrations[index] = updatedRegistration
         }
-        return updatedRegistration
-      } catch (error: any) {
-        console.error(`Error updating registration ${registrationId}:`, error)
-        this.error = error.message || `Failed to update registration ${registrationId}`
-        return null
-      } finally {
-        this.loading = false
+      } catch (error) {
+        console.error('Error updating registration:', error)
+        throw error
       }
     },
 
@@ -307,7 +381,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     async createInspection(registrationId: string, inspectionData: any) {
       this.loading = true
       this.error = null
-      
+
       try {
         const inspection = await adminService.createInspection(registrationId, inspectionData)
         // After creating an inspection, refresh the registration data
@@ -327,7 +401,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     async updateInspection(registrationId: string, inspectionId: string, inspectionData: any) {
       this.loading = true
       this.error = null
-      
+
       try {
         const inspection = await adminService.updateInspection(registrationId, inspectionId, inspectionData)
         // After updating an inspection, refresh the registration data
@@ -348,7 +422,7 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     async createPayment(registrationId: string, paymentData: any) {
       this.loading = true
       this.error = null
-      
+
       try {
         const payment = await adminService.createPayment(registrationId, paymentData)
         // After creating a payment, refresh the registration data
@@ -366,47 +440,38 @@ export const useAdminDashboardStore = defineStore('adminDashboard', {
     },
 
     async updatePayment(registrationId: string, paymentId: string, paymentData: any) {
-      this.loading = true
-      this.error = null
-      
       try {
-        const payment = await adminService.updatePayment(registrationId, paymentId, paymentData)
-        // After updating a payment, refresh the registration data
-        if (payment) {
-          await this.fetchRegistrationById(registrationId, true)
-        }
-        return payment
+        const updatedPayment = await adminService.updatePayment(registrationId, paymentId, paymentData)
+        return updatedPayment
       } catch (error: any) {
         console.error(`Error updating payment ${paymentId}:`, error)
         this.error = error.message || `Failed to update payment ${paymentId}`
         return null
-      } finally {
-        this.loading = false
       }
     },
 
-    // Fetch all data at once (useful for initial load)
+    // Fetch all data at once
     async fetchAllData() {
       this.loading = true
       this.error = null
-      
+
       try {
-        // Fetch vehicles first
-        await this.fetchAllVehicles()
-        
-        // Then fetch plates and registrations in parallel
         await Promise.all([
-          this.fetchAllPlates(),
+          this.fetchAllVehicles(),
+          this.fetchPlates(),
           this.fetchAllRegistrations()
         ])
-        
-        console.log('Admin dashboard data loaded successfully')
+
+        // Log incomplete registrations count
+        const incompleteCount = this.incompleteVehicles.length
+        console.log(`Admin: loaded ${incompleteCount} incomplete vehicle registrations`)
+
       } catch (error: any) {
-        console.error('Error fetching all admin data:', error)
-        this.error = error.message || 'Failed to fetch admin dashboard data'
+        console.error('Error fetching admin dashboard data:', error)
+        this.error = error.message || 'Failed to fetch data'
       } finally {
         this.loading = false
       }
     }
   }
-}) 
+})

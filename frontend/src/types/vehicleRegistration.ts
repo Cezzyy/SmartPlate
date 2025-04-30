@@ -31,6 +31,11 @@ export interface VehicleRegistrationErrors {
   color: string
   documents: DocumentErrors
   referenceSlip: string
+  ownershipDocument: string
+  insuranceDocument: string
+  emissionTest: string
+  vehicleInspection: string
+  submission: string
 }
 
 // Additional vehicle data collected during inspection
@@ -101,6 +106,11 @@ export interface VehicleRegistrationForm {
   applicantName?: string
   applicantEmail?: string
   applicantPhone?: string
+  ownershipDocument: File | null
+  insuranceDocument: File | null
+  emissionTest: File | null
+  vehicleInspection: File | null
+  referenceNumber: string
 }
 
 export interface VehicleRegistrationState {

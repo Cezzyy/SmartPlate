@@ -14,5 +14,14 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
-  }
+  },
+  server: {
+    proxy: {
+      // Proxy HTTP API requests to your Go server
+      '/api': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,      },
+    },
+  },
 })

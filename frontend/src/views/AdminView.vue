@@ -16,6 +16,9 @@ const RegistrationsSection = defineAsyncComponent(
 const PendingRegistrationsSection = defineAsyncComponent(
   () => import('@/components/admin/PendingRegistrationsSection.vue'),
 )
+const ScanLogsSection = defineAsyncComponent(
+  () => import('@/components/admin/ScanLogSection.vue')
+)
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -39,38 +42,38 @@ const cancelLogout = () => {
 onMounted(() => {
   // First check if we need to refresh auth state
   userStore.checkAuth();
-  
+
   // Get role directly from localStorage if available
   let currentRole = localStorage.getItem('userRole') || '';
-  
+
   // Try to get from user state if not found in localStorage
   if (!currentRole && userStore.currentUser) {
     console.log('User state in AdminView:', userStore.currentUser);
-    
+
     const roleValue = userStore.currentUser.role;
-    
+
     if (roleValue !== undefined && roleValue !== null) {
       currentRole = typeof roleValue === 'string' ? roleValue : String(roleValue);
     }
   }
-  
+
   const normalizedRole = currentRole.toLowerCase();
   const isAdmin = normalizedRole === 'admin';
   const isLtoOfficer = normalizedRole === 'lto officer';
-  
+
   console.log('Current user role in AdminView:', currentRole, 'normalized:', normalizedRole);
-  
+
   // Then verify the user has admin privileges
   if (!isAdmin) {
     console.log('Non-admin user attempted to access admin view');
-    
+
     // Check if user is LTO Officer (should be directed to lto-portal)
     if (isLtoOfficer) {
       console.log('LTO Officer redirected to LTO portal');
       router.push('/lto-portal');
       return;
     }
-    
+
     // Otherwise redirect to admin login
     console.log('Unauthorized user redirected to admin login');
     router.push('/admin-portal');
@@ -271,6 +274,18 @@ watch(searchQuery, () => {
             <font-awesome-icon :icon="['fas', 'clock']" class="w-5 h-5" />
             <span v-if="isSidebarOpen" class="ml-3 truncate">Pending Registrations</span>
           </button>
+          <button
+             @click="activeSection = 'scan-logs'"
+             :class="[
+               'w-full flex items-center p-3 rounded-lg transition-colors text-left',
+                activeSection === 'scan-logs'
+                ? 'bg-light-blue text-white'
+                : 'hover:bg-light-blue hover:bg-opacity-50',
+            ]"
+          >
+            <font-awesome-icon :icon="['fas', 'history']" class="w-5 h-5" />
+            <span v-if="isSidebarOpen" class="ml-3 truncate">Scan Logs</span>
+          </button>
         </nav>
 
         <div class="border-t border-light-blue opacity-30 mx-4"></div>
@@ -346,6 +361,10 @@ watch(searchQuery, () => {
         <component
           v-else-if="activeSection === 'pending-registrations'"
           :is="PendingRegistrationsSection"
+        />
+        <component
+         v-else-if="activeSection === 'scan-logs'"
+          :is="ScanLogsSection"
         />
       </main>
 

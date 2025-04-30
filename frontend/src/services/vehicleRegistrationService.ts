@@ -1,9 +1,9 @@
 import api from './api';
 import type { Vehicle, Plate, Registration } from '@/types/vehicle';
-import type { 
+import type {
   VehicleRegistrationForm,
   RegistrationInspection,
-  RegistrationPayment 
+  RegistrationPayment
 } from '@/types/vehicleRegistration';
 
 // Vehicle API endpoints
@@ -12,22 +12,22 @@ const getVehiclesByUserId = async (userId: string): Promise<Vehicle[]> => {
     // Use the users/lto endpoint which is working according to main.go line 114
     console.log('Fetching vehicles for user ID:', userId);
     const response = await api.get(`/users/lto/${userId}`);
-    
+
     // If user data is returned, extract vehicles if available
     if (response.data) {
       console.log('User data returned:', response.data);
-      
+
       // Check if response contains vehicles info
       if (response.data.vehicles && Array.isArray(response.data.vehicles)) {
         return response.data.vehicles;
       }
-      
+
       // If the response is already an array, return it directly
       if (Array.isArray(response.data)) {
         return response.data;
       }
     }
-    
+
     console.log('No vehicles found for user');
     return [];
   } catch (error) {
@@ -61,13 +61,13 @@ const getPlatesByVehicleId = async (vehicleId: string): Promise<Plate[]> => {
   try {
     console.log(`Fetching plates for vehicle ${vehicleId}`);
     const response = await api.get(`/api/vehicles/${vehicleId}/plates`);
-    
+
     if (Array.isArray(response.data)) {
       return response.data;
     } else if (response.data && response.data.plates && Array.isArray(response.data.plates)) {
       return response.data.plates;
     }
-    
+
     console.log(`No plates found for vehicle ${vehicleId}`);
     return [];
   } catch (error) {
@@ -81,24 +81,24 @@ const getAllPlates = async (): Promise<Plate[]> => {
   try {
     // There's no direct endpoint for all plates, we need to get all vehicles first
     const vehicles = await getAllVehicles();
-    
+
     if (!vehicles || vehicles.length === 0) {
       return [];
     }
-    
+
     // Then get plates for each vehicle
     const plates: Plate[] = [];
     for (const vehicle of vehicles) {
       try {
-        const vehiclePlates = await getPlatesByVehicleId(vehicle.id.toString());
+        const vehiclePlates = await getPlatesByVehicleId(vehicle.VEHICLE_ID);
         if (vehiclePlates && vehiclePlates.length > 0) {
           plates.push(...vehiclePlates);
         }
       } catch (err) {
-        console.warn(`Couldn't get plates for vehicle ${vehicle.id}:`, err);
+        console.warn(`Couldn't get plates for vehicle ${vehicle.VEHICLE_ID}:`, err);
       }
     }
-    
+
     return plates;
   } catch (error) {
     console.error('Error fetching all plates:', error);
@@ -112,22 +112,22 @@ const getRegistrationsByUserId = async (userId: string): Promise<Registration[]>
     // There's no direct user endpoint, so we'll fetch all registrations and filter
     console.log(`Fetching registrations for user ${userId}`);
     const allRegistrations = await getAllRegistrations();
-    
+
     if (!allRegistrations || allRegistrations.length === 0) {
       return [];
     }
-    
+
     // Get user vehicles to filter registrations
     const userVehicles = await getVehiclesByUserId(userId);
-    
+
     if (!userVehicles || userVehicles.length === 0) {
       return [];
     }
-    
+
     // Filter registrations for user's vehicles
-    const userVehicleIds = userVehicles.map(v => v.id);
-    return allRegistrations.filter(reg => 
-      userVehicleIds.includes(reg.vehicleId)
+    const userVehicleIds = userVehicles.map(v => v.VEHICLE_ID);
+    return allRegistrations.filter(reg =>
+      userVehicleIds.includes(reg.VehicleID)
     );
   } catch (error) {
     console.error(`Error fetching registrations for user ${userId}:`, error);
@@ -142,7 +142,7 @@ const getRegistrationById = async (registrationId: string): Promise<Registration
       console.log(`Skipping API call for client-generated ID: ${registrationId}`);
       return null;
     }
-    
+
     // Only make API call for backend-generated UUIDs
     console.log(`Fetching registration with UUID: ${registrationId}`);
     const response = await api.get(`/api/registration-form/${registrationId}`);
@@ -156,27 +156,19 @@ const getRegistrationById = async (registrationId: string): Promise<Registration
 const getAllRegistrations = async (): Promise<Registration[]> => {
   try {
     console.log('Fetching all registrations from registration-form endpoint');
-    const response = await api.get(`/api/registration-form`);
-    
-    // Handle null response
-    if (response.data === null) {
-      console.warn('Registration endpoint returned null data, returning empty array');
+    const response = await api.get('/api/registration-form');
+
+    if (!response || !response.data) {
+      console.warn('No response data received from registration endpoint');
       return [];
     }
-    
+
     // Check if we received valid data
-    if (response.data && Array.isArray(response.data)) {
+    if (Array.isArray(response.data)) {
       console.log(`Received ${response.data.length} registrations from API`);
       return response.data;
-    } else if (typeof response.data === 'object' && response.data !== null) {
-      // Try to extract registrations from response
-      console.log('Trying to extract registrations from object:', response.data);
-      if (response.data.registrations && Array.isArray(response.data.registrations)) {
-        console.log(`Extracted ${response.data.registrations.length} registrations from response`);
-        return response.data.registrations;
-      }
     }
-    
+
     console.warn('Registration endpoint returned unexpected data format:', response.data);
     return [];
   } catch (error) {
@@ -262,7 +254,7 @@ const generatePlateNumber = async (vehicleType: string, plateType: string = 'Pri
 const createRegistrationForm = async (formData: Partial<VehicleRegistrationForm>): Promise<VehicleRegistrationForm | null> => {
   try {
     console.log(`Creating registration form for user: ${formData.userId}`);
-    
+
     // Create backend CreateRegistrationFormParams structure
     const payload = {
       lto_client_id: formData.userId || '', // Required field
@@ -271,17 +263,17 @@ const createRegistrationForm = async (formData: Partial<VehicleRegistrationForm>
       region: formData.plateRegion || 'NCR', // Default to NCR
       registration_type: formData.registrationType || 'New Vehicle'
     };
-    
+
     console.log('Sending registration form payload to backend:', payload);
-    
+
     const response = await api.post('/api/registration-form', payload);
     console.log('Registration form creation response:', response.data);
-    
+
     if (!response.data) {
       console.error('Empty response from registration form creation');
       return null;
     }
-    
+
     // Create a merged object with frontend data + backend response
     const createdForm = {
       ...formData,
@@ -289,7 +281,7 @@ const createRegistrationForm = async (formData: Partial<VehicleRegistrationForm>
       status: response.data.status || formData.status || 'pending',
       submissionDate: response.data.submitted_date || formData.submissionDate || new Date().toISOString().split('T')[0]
     };
-    
+
     console.log('Merged form data:', createdForm);
     return createdForm as VehicleRegistrationForm;
   } catch (error: any) {
@@ -317,7 +309,7 @@ const updateRegistrationForm = async (
 ): Promise<VehicleRegistrationForm | null> => {
   try {
     console.log(`Updating registration form with ID: ${registrationId}`);
-    
+
     // Map frontend fields to backend expected format
     const payload = {
       status: formData.status,
@@ -326,19 +318,19 @@ const updateRegistrationForm = async (
       vehicle_id: formData.vehicleId,
       region: formData.plateRegion
     };
-    
+
     // Remove undefined fields
     Object.keys(payload).forEach(key => {
       if (payload[key as keyof typeof payload] === undefined) {
         delete payload[key as keyof typeof payload];
       }
     });
-    
+
     console.log(`Sending update payload:`, payload);
-    
+
     await api.put(`/api/registration-form/${registrationId}`, payload);
     console.log('Registration form updated successfully');
-    
+
     // Return merged form data
     return {
       ...formData,
@@ -359,7 +351,7 @@ const uploadDocument = async (registrationId: string, documentType: string, file
     const formData = new FormData();
     formData.append('file', file);
     formData.append('documentType', documentType);
-    
+
     const response = await api.post(`/api/registration-form/${registrationId}/document`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -452,14 +444,14 @@ export {
   getVehicleById,
   getAllVehicles,
   updateVehicle,
-  
+
   // Plate functions
   getPlatesByVehicleId,
   getAllPlates,
   createPlate,
   updatePlate,
   generatePlateNumber,
-  
+
   // Registration form functions
   getRegistrationsByUserId,
   createRegistrationForm,
@@ -468,18 +460,18 @@ export {
   updateRegistrationForm,
   getFullRegistrationById,
   getAllRegistrations,
-  
+
   // Document functions
   uploadDocument,
   getDocuments,
-  
+
   // Inspection functions
   createInspection,
   getInspections,
   updateInspection,
-  
+
   // Payment functions
   createPayment,
   getPayments,
   updatePayment
-}; 
+};
